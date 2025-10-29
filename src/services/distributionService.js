@@ -79,51 +79,89 @@ export const parsearStock = (data) => {
   }
 
   const headers = data[0].map(h => String(h).toLowerCase().trim());
+
+  // Buscar índices de columnas UNA SOLA VEZ
+  const idxCoddep = headers.findIndex(h => h.includes('coddep'));
+  const idxDeposito = headers.findIndex(h => h.includes('deposito'));
+  const idxColor = headers.findIndex(h => h === 'color');
+  const idxNombreColor = headers.findIndex(h => h.includes('nombrecolor'));
+  const idxMedida = headers.findIndex(h => h.includes('medida') || h.includes('talle'));
+  const idxCantidad = headers.findIndex(h => h.includes('cantidad'));
+  const idxTipologia = headers.findIndex(h => h.includes('tipologia'));
+  const idxOrigen = headers.findIndex(h => h.includes('origen'));
+  const idxTemporada = headers.findIndex(h => h.includes('temporada'));
+
+  console.log('📋 Índices de columnas encontrados:', {
+    idxCoddep, idxDeposito, idxColor, idxNombreColor, idxMedida,
+    idxCantidad, idxTipologia, idxOrigen, idxTemporada
+  });
+
   const productos = [];
+  let filasDescartadas = 0;
+  let razonesDescarte = {};
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (!row || row.length < 6) continue;
-
-    // Buscar índices de columnas
-    const idxCoddep = headers.findIndex(h => h.includes('coddep'));
-    const idxDeposito = headers.findIndex(h => h.includes('deposito'));
-    const idxColor = headers.findIndex(h => h === 'color');
-    const idxNombreColor = headers.findIndex(h => h.includes('nombrecolor'));
-    const idxMedida = headers.findIndex(h => h.includes('medida') || h.includes('talle'));
-    const idxCantidad = headers.findIndex(h => h.includes('cantidad'));
-    const idxTipologia = headers.findIndex(h => h.includes('tipologia'));
-    const idxOrigen = headers.findIndex(h => h.includes('origen'));
-    const idxTemporada = headers.findIndex(h => h.includes('temporada'));
+    if (!row || row.length < 6) {
+      filasDescartadas++;
+      razonesDescarte['fila_vacia_o_corta'] = (razonesDescarte['fila_vacia_o_corta'] || 0) + 1;
+      continue;
+    }
 
     const coddep = idxCoddep >= 0 ? String(row[idxCoddep] || '').trim() : '';
     const deposito = idxDeposito >= 0 ? String(row[idxDeposito] || '').trim() : '';
     const color = idxColor >= 0 ? String(row[idxColor] || '').trim() : '';
     const nombreColor = idxNombreColor >= 0 ? String(row[idxNombreColor] || '').trim() : '';
     const medida = idxMedida >= 0 ? String(row[idxMedida] || '').trim() : '';
-    const cantidad = idxCantidad >= 0 ? parseInt(row[idxCantidad]) : 0;
+    const cantidadRaw = idxCantidad >= 0 ? row[idxCantidad] : 0;
+    const cantidad = parseInt(cantidadRaw) || 0;
     const tipologia = idxTipologia >= 0 ? String(row[idxTipologia] || '').trim() : '';
     const origen = idxOrigen >= 0 ? String(row[idxOrigen] || '').trim() : '';
     const temporada = idxTemporada >= 0 ? String(row[idxTemporada] || '').trim() : '';
 
-    if (tipologia && medida && cantidad > 0) {
-      // SKU = TIPOLOGIA + Color + Medida
-      const sku = `${tipologia}_${color}_${medida}`;
-
-      productos.push({
-        coddep,
-        deposito,
-        color,
-        nombreColor,
-        medida,
-        cantidad,
-        tipologia,
-        origen,
-        temporada,
-        sku
-      });
+    // Validar campos críticos
+    if (!tipologia) {
+      filasDescartadas++;
+      razonesDescarte['tipologia_vacia'] = (razonesDescarte['tipologia_vacia'] || 0) + 1;
+      continue;
     }
+
+    if (!medida) {
+      filasDescartadas++;
+      razonesDescarte['medida_vacia'] = (razonesDescarte['medida_vacia'] || 0) + 1;
+      continue;
+    }
+
+    if (cantidad <= 0) {
+      filasDescartadas++;
+      razonesDescarte['cantidad_cero_o_negativa'] = (razonesDescarte['cantidad_cero_o_negativa'] || 0) + 1;
+      continue;
+    }
+
+    // SKU = TIPOLOGIA + Color + Medida
+    const sku = `${tipologia}_${color}_${medida}`;
+
+    productos.push({
+      coddep,
+      deposito,
+      color,
+      nombreColor,
+      medida,
+      cantidad,
+      tipologia,
+      origen,
+      temporada,
+      sku
+    });
   }
+
+  console.log(`📦 Parseo de Stock completado:`);
+  console.log(`   ✅ Productos válidos: ${productos.length}`);
+  console.log(`   ❌ Filas descartadas: ${filasDescartadas}`);
+  console.log(`   📋 Razones de descarte:`, razonesDescarte);
+
+  const totalUnidades = productos.reduce((sum, p) => sum + p.cantidad, 0);
+  console.log(`   📊 Total unidades a distribuir: ${totalUnidades}`);
 
   if (productos.length === 0) {
     throw new Error('No se encontraron productos válidos en el archivo de stock');
