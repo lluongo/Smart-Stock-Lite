@@ -263,7 +263,7 @@ const Distribucion = () => {
                   {resultado.distribucionDetallada.length}
                 </p>
               </div>
-              <TrendingUp className="w-10 h-10 text-green-400" />
+              <Activity className="w-10 h-10 text-green-400" />
             </div>
           </div>
 
