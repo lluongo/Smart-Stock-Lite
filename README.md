@@ -32,10 +32,20 @@ Una aplicación web moderna y profesional para la gestión inteligente de invent
    - Semáforos visuales de estado
    - Edición rápida de valores
 
-5. **Revisión y Exportación**
+5. **Distribución Inter-local** ⭐ NUEVO
+   - Motor de optimización automática con reglas de negocio
+   - Análisis de curvas completas/rotas por local
+   - Detección de sobrestock y curvas faltantes
+   - Redistribución inteligente según % de ventas
+   - Visualización con semáforos (Verde/Amarillo/Rojo)
+   - Estadísticas detalladas de movimientos
+   - Exportación completa a formato XLS
+   - Aplicación de reglas R1-R7
+
+6. **Revisión y Exportación**
    - Resumen de movimientos
    - Indicadores de totales
-   - Exportación a CSV
+   - Exportación a CSV y XLS
    - Opciones de ajuste
 
 ### Navegación
@@ -54,6 +64,7 @@ Una aplicación web moderna y profesional para la gestión inteligente de invent
 - **Recharts** - Gráficos
 - **Lucide React** - Iconos
 - **PapaParse** - Parser de CSV
+- **SheetJS (xlsx)** - Exportación a Excel
 
 ## Instalación
 
@@ -89,7 +100,12 @@ http://localhost:5173
 
 ```
 Smart-Stock-Lite/
-├── public/              # Archivos estáticos
+├── public/
+│   └── ejemplos/        # Archivos CSV de ejemplo
+│       ├── ejemplo_stock.csv
+│       ├── ejemplo_participacion.csv
+│       ├── ejemplo_prioridad.csv
+│       └── README.md
 ├── src/
 │   ├── components/      # Componentes reutilizables
 │   │   ├── Layout.jsx
@@ -101,8 +117,12 @@ Smart-Stock-Lite/
 │   │   ├── Dashboard.jsx
 │   │   ├── CargarDatos.jsx
 │   │   ├── Distribucion.jsx
+│   │   ├── DistribucionInterlocal.jsx  ⭐ NUEVO
 │   │   ├── Revision.jsx
 │   │   └── Configuracion.jsx
+│   ├── services/        # Lógica de negocio
+│   │   ├── distributionEngine.js  ⭐ Motor de distribución
+│   │   └── xlsExport.js           ⭐ Exportación XLS
 │   ├── App.jsx          # Componente principal y rutas
 │   ├── main.jsx         # Punto de entrada
 │   └── index.css        # Estilos globales
@@ -138,36 +158,94 @@ Smart-Stock-Lite/
 
 ## Flujo de Usuario
 
+### Flujo Básico
 1. **Login** → Ingresar credenciales
 2. **Dashboard** → Ver resumen y KPIs
 3. **Cargar Datos** → Subir archivos CSV
 4. **Distribución** → Revisar y ajustar sugerencias
 5. **Revisión** → Confirmar y exportar
 
+### Flujo Motor de Distribución Inter-local ⭐
+1. **Login** → Ingresar credenciales
+2. **Cargar Datos** → Subir 3 archivos: stock, participación, prioridad
+3. **Distribución Inter-local** → El motor calcula automáticamente:
+   - Análisis de curvas (completas/rotas)
+   - Detección de sobrestock
+   - Movimientos óptimos entre locales
+   - Aplicación de reglas R1-R7
+4. **Exportar** → Descargar dashboard completo en XLS con:
+   - Movimientos propuestos
+   - Análisis de curvas
+   - Estadísticas detalladas
+
 ## Formato de Archivos
+
+Los archivos de ejemplo están disponibles en `public/ejemplos/`
 
 ### Stock (stock.csv)
 ```csv
-producto,tienda1,tienda2,tienda3
-Producto A,150,200,180
-Producto B,320,280,300
+SKU,Talle,Color,Local Centro,Local Norte,Local Sur,Local Oeste
+P001,S,Azul,5,2,0,8
+P001,M,Azul,8,4,3,10
+P001,L,Azul,6,5,2,7
+P001,XL,Azul,3,1,0,5
 ```
 
 ### Participación (participacion.csv)
 ```csv
-tienda,porcentaje
-tienda1,35
-tienda2,40
-tienda3,25
+Local,% VTA
+Local Centro,35
+Local Norte,25
+Local Sur,20
+Local Oeste,20
 ```
 
 ### Prioridad (prioridad.csv)
 ```csv
-producto,prioridad
-Producto A,1
-Producto B,2
-Producto C,3
+SKU,Prioridad,Capacidad,Categoria
+P001,Alta,100,Verano
+P002,Alta,150,Verano
+P003,Media,200,Continuo
 ```
+
+## Motor de Distribución Inter-local
+
+### Reglas de Negocio Implementadas
+
+El motor aplica automáticamente 7 reglas de optimización:
+
+- **R1**: Locales grandes solo mueven mercadería en caso de sobrestock
+- **R2**: Sobrestock = más de 3 curvas completas o exceso de capacidad
+- **R3**: Distribución proporcional según % de ventas del local
+- **R4**: Prioridad máxima a completar curvas
+- **R5**: Baja prioridad si un local no puede completar curva
+- **R6**: Evitar movimientos que rompan curvas del donante
+- **R7**: Análisis por categoría y criticidad
+
+### Objetivos del Motor
+
+1. **Optimizar disponibilidad** asegurando curvas completas
+2. **Aumentar eficiencia** en movimientos logísticos
+3. **Reducir sobrestock** y limpiar curvas rotas
+4. **Priorizar ventas** y capacidad de cada local
+
+### Salidas del Motor
+
+El sistema genera un archivo XLS con múltiples hojas:
+
+1. **Movimientos**: SKU, Talle, Color, Origen, Destino, Cantidad, Motivo, Prioridad, Estado
+2. **Análisis de Curvas**: Estado de completitud por producto y local
+3. **Estadísticas**: Métricas de eficiencia y distribución
+
+## Funcionalidades Implementadas
+
+- [x] Motor de Distribución Inter-local con reglas R1-R7
+- [x] Análisis automático de curvas completas/rotas
+- [x] Detección de sobrestock y redistribución inteligente
+- [x] Exportación a formato XLS con múltiples hojas
+- [x] Visualización con semáforos (Verde/Amarillo/Rojo)
+- [x] Archivos CSV de ejemplo para testing
+- [x] Estadísticas detalladas de movimientos
 
 ## Próximas Funcionalidades
 
@@ -175,10 +253,10 @@ Producto C,3
 - [ ] Integración con API REST
 - [ ] Persistencia de datos
 - [ ] Notificaciones en tiempo real
-- [ ] Exportación a múltiples formatos
 - [ ] Panel de configuración completo
 - [ ] Modo oscuro
 - [ ] Reportes avanzados
+- [ ] Integración con n8n para automatización
 
 ## Contribución
 

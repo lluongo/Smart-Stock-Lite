@@ -8,7 +8,8 @@ import {
   LogOut,
   Package,
   X,
-  Menu
+  Menu,
+  Network
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useState } from 'react';
@@ -21,6 +22,7 @@ const Sidebar = () => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Upload, label: 'Cargar Datos', path: '/cargar' },
     { icon: GitBranch, label: 'Distribución', path: '/distribucion' },
+    { icon: Network, label: 'Distribución Inter-local', path: '/distribucion-interlocal' },
     { icon: FileCheck, label: 'Revisión', path: '/revision' },
     { icon: Settings, label: 'Configuración', path: '/configuracion' },
   ];

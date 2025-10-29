@@ -9,6 +9,7 @@ import {
   Package,
   RefreshCw,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const Revision = () => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const Revision = () => {
   );
   const noChanges = movements.filter((m) => m.cambio === 0).length;
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
     // Crear CSV
     const headers = ['Producto', 'Stock Actual', 'Stock Nuevo', 'Cambio'];
     const rows = movements.map((m) => [
@@ -55,6 +56,53 @@ const Revision = () => {
     a.href = url;
     a.download = `distribucion_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+
+    setExported(true);
+    setTimeout(() => setExported(false), 3000);
+  };
+
+  const handleExportXLS = () => {
+    // Preparar datos para Excel
+    const datosFormateados = movements.map(m => ({
+      Producto: m.producto,
+      'Stock Actual': m.stockActual || m.actual,
+      'Stock Nuevo': m.sugerido || m.nuevo,
+      'Cambio': (m.sugerido || m.nuevo) - (m.stockActual || m.actual)
+    }));
+
+    // Crear workbook y worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datosFormateados);
+
+    // Ajustar ancho de columnas
+    ws['!cols'] = [
+      { wch: 20 }, // Producto
+      { wch: 15 }, // Stock Actual
+      { wch: 15 }, // Stock Nuevo
+      { wch: 10 }  // Cambio
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Distribución');
+
+    // Crear hoja de resumen
+    const resumenData = [
+      ['RESUMEN DE DISTRIBUCIÓN'],
+      [''],
+      ['Total de movimientos', totalMovements],
+      ['Total aumentos', `+${totalIncrease}`],
+      ['Total reducciones', `-${totalDecrease}`],
+      ['Sin cambios', noChanges],
+      [''],
+      ['Generado el', new Date().toLocaleString('es-AR')]
+    ];
+
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    wsResumen['!cols'] = [{ wch: 25 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+    // Descargar archivo
+    const fecha = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `distribucion_${fecha}.xlsx`);
 
     setExported(true);
     setTimeout(() => setExported(false), 3000);
@@ -227,10 +275,16 @@ const Revision = () => {
           Volver a Ajustar
         </button>
 
-        <button onClick={handleExport} className="btn-primary">
-          <Download className="w-5 h-5 mr-2 inline" />
-          Exportar Archivo Final
-        </button>
+        <div className="flex gap-3">
+          <button onClick={handleExportCSV} className="btn-secondary">
+            <Download className="w-5 h-5 mr-2 inline" />
+            Exportar CSV
+          </button>
+          <button onClick={handleExportXLS} className="btn-primary">
+            <Download className="w-5 h-5 mr-2 inline" />
+            Exportar XLS
+          </button>
+        </div>
       </div>
     </div>
   );
