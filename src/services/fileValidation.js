@@ -1,11 +1,44 @@
 /**
- * Validación de formatos de archivos CSV
- * Asegura que los archivos subidos tengan la estructura correcta
+ * Validación ESTRICTA de formatos de archivos CSV
+ * Asegura que cada tipo de archivo SOLO pueda subirse en su sección correspondiente
  */
 
 /**
- * Valida que el archivo de stock tenga el formato correcto
+ * Detecta el tipo de archivo basándose en sus columnas
+ */
+const detectarTipoArchivo = (headers) => {
+  const headersLower = headers.map(h => h.toLowerCase().trim());
+
+  // Palabras clave para cada tipo
+  const tieneSKU = headersLower.some(h => h.includes('sku') || h.includes('codigo'));
+  const tieneTalle = headersLower.some(h => h.includes('talle') || h.includes('size'));
+  const tieneColor = headersLower.some(h => h.includes('color'));
+  const tieneLocal = headersLower.some(h => h.includes('local') || h.includes('tienda') || h.includes('sucursal'));
+  const tieneVTA = headersLower.some(h => h.includes('vta') || h.includes('venta') || h.includes('%'));
+  const tienePrioridad = headersLower.some(h => h.includes('prioridad') || h.includes('priority'));
+  const tieneCapacidad = headersLower.some(h => h.includes('capacidad'));
+  const tieneCategoria = headersLower.some(h => h.includes('categoria') || h.includes('category'));
+
+  // Detectar tipo de archivo
+  if (tieneSKU && tieneTalle && tieneColor && !tieneVTA && !tienePrioridad) {
+    return 'stock';
+  }
+
+  if (tieneLocal && tieneVTA && !tieneSKU && !tieneTalle && !tieneColor && !tienePrioridad) {
+    return 'participacion';
+  }
+
+  if (tieneSKU && tienePrioridad && !tieneTalle && !tieneColor && !tieneVTA) {
+    return 'prioridad';
+  }
+
+  return null;
+};
+
+/**
+ * Valida que el archivo de stock tenga el formato correcto Y SOLO sea stock
  * Formato esperado: SKU, Talle, Color, Local1, Local2, ...
+ * NO DEBE contener: % VTA, Prioridad
  */
 export const validarStock = (data) => {
   if (!data || data.length < 2) {
@@ -25,33 +58,55 @@ export const validarStock = (data) => {
     };
   }
 
-  // Verificar columnas requeridas (case-insensitive)
   const headersLower = headers.map(h => h.toLowerCase().trim());
-  const requiredColumns = ['sku', 'talle', 'color'];
 
-  const missingColumns = requiredColumns.filter(col =>
-    !headersLower.some(h => h.includes(col) || h.includes('producto'))
-  );
+  // VALIDACIÓN ESTRICTA: Detectar si NO es un archivo de stock
+  const tieneVTA = headersLower.some(h => h.includes('vta') || h.includes('venta') || (h.includes('%') && !h.includes('desc')));
+  const tienePrioridad = headersLower.some(h => h.includes('prioridad') || h.includes('priority'));
 
-  if (missingColumns.length > 0) {
+  if (tieneVTA && !tienePrioridad) {
     return {
       valido: false,
-      error: `Columnas faltantes en el archivo de stock: ${missingColumns.join(', ')}. El formato debe ser: SKU, Talle, Color, Local1, Local2, ...`
+      error: '❌ Este archivo parece ser de PARTICIPACIÓN (contiene columna "% VTA"). Por favor súbelo en la sección de Participación, no en Stock.'
+    };
+  }
+
+  if (tienePrioridad) {
+    return {
+      valido: false,
+      error: '❌ Este archivo parece ser de PRIORIDAD (contiene columna "Prioridad"). Por favor súbelo en la sección de Prioridad, no en Stock.'
+    };
+  }
+
+  // Verificar columnas requeridas para STOCK
+  const tieneSKU = headersLower.some(h => h.includes('sku') || h.includes('producto') || h.includes('codigo'));
+  const tieneTalle = headersLower.some(h => h.includes('talle') || h.includes('size') || h.includes('talla'));
+  const tieneColor = headersLower.some(h => h.includes('color'));
+
+  const columnasFaltantes = [];
+  if (!tieneSKU) columnasFaltantes.push('SKU/Producto');
+  if (!tieneTalle) columnasFaltantes.push('Talle');
+  if (!tieneColor) columnasFaltantes.push('Color');
+
+  if (columnasFaltantes.length > 0) {
+    return {
+      valido: false,
+      error: `Columnas faltantes para archivo de STOCK: ${columnasFaltantes.join(', ')}. El formato debe ser: SKU, Talle, Color, Local1, Local2, ...`
     };
   }
 
   // Verificar que haya al menos un local (columna después de SKU, Talle, Color)
-  const skuIndex = headersLower.findIndex(h => h.includes('sku') || h.includes('producto'));
+  const skuIndex = headersLower.findIndex(h => h.includes('sku') || h.includes('producto') || h.includes('codigo'));
   const talleIndex = headersLower.findIndex(h => h.includes('talle') || h.includes('size'));
   const colorIndex = headersLower.findIndex(h => h.includes('color'));
 
   const lastRequiredIndex = Math.max(skuIndex, talleIndex, colorIndex);
-  const hasLocales = headers.length > lastRequiredIndex + 1;
+  const locales = headers.slice(lastRequiredIndex + 1);
 
-  if (!hasLocales) {
+  if (locales.length === 0) {
     return {
       valido: false,
-      error: 'El archivo de stock debe incluir al menos una columna de Local después de SKU, Talle y Color'
+      error: 'El archivo de Stock debe incluir al menos una columna de Local después de SKU, Talle y Color'
     };
   }
 
@@ -73,15 +128,16 @@ export const validarStock = (data) => {
 
   return {
     valido: true,
-    mensaje: `Archivo válido: ${filasConDatos} filas de productos detectadas`,
-    locales: headers.slice(lastRequiredIndex + 1),
+    mensaje: `✅ Archivo de Stock válido: ${filasConDatos} filas de productos, ${locales.length} locales detectados`,
+    locales: locales,
     filas: filasConDatos
   };
 };
 
 /**
- * Valida que el archivo de participación tenga el formato correcto
+ * Valida que el archivo de participación tenga el formato correcto Y SOLO sea participación
  * Formato esperado: Local, % VTA
+ * NO DEBE contener: SKU, Talle, Color, Prioridad
  */
 export const validarParticipacion = (data) => {
   if (!data || data.length < 2) {
@@ -93,7 +149,7 @@ export const validarParticipacion = (data) => {
 
   const headers = data[0];
 
-  // Verificar que tenga exactamente 2 columnas o al menos las requeridas
+  // Verificar que tenga al menos 2 columnas
   if (headers.length < 2) {
     return {
       valido: false,
@@ -101,28 +157,57 @@ export const validarParticipacion = (data) => {
     };
   }
 
-  // Verificar columnas requeridas (case-insensitive)
   const headersLower = headers.map(h => h.toLowerCase().trim());
 
-  const hasLocal = headersLower.some(h =>
-    h.includes('local') || h.includes('tienda') || h.includes('sucursal')
-  );
+  // VALIDACIÓN ESTRICTA: Detectar si NO es un archivo de participación
+  const tieneSKU = headersLower.some(h => h.includes('sku') || h.includes('producto') || h.includes('codigo'));
+  const tieneTalle = headersLower.some(h => h.includes('talle') || h.includes('size'));
+  const tieneColor = headersLower.some(h => h.includes('color'));
+  const tienePrioridad = headersLower.some(h => h.includes('prioridad') || h.includes('priority'));
 
-  const hasVenta = headersLower.some(h =>
-    h.includes('vta') || h.includes('venta') || h.includes('participacion') || h.includes('%')
-  );
-
-  if (!hasLocal) {
+  if (tieneSKU && tieneTalle && tieneColor) {
     return {
       valido: false,
-      error: 'Falta columna "Local" en el archivo de participación. El formato debe ser: Local, % VTA'
+      error: '❌ Este archivo parece ser de STOCK (contiene columnas SKU, Talle, Color). Por favor súbelo en la sección de Stock, no en Participación.'
     };
   }
 
-  if (!hasVenta) {
+  if (tieneSKU && tienePrioridad) {
     return {
       valido: false,
-      error: 'Falta columna "% VTA" en el archivo de participación. El formato debe ser: Local, % VTA'
+      error: '❌ Este archivo parece ser de PRIORIDAD (contiene columnas SKU, Prioridad). Por favor súbelo en la sección de Prioridad, no en Participación.'
+    };
+  }
+
+  // Verificar columnas requeridas para PARTICIPACIÓN
+  const tieneLocal = headersLower.some(h =>
+    h.includes('local') || h.includes('tienda') || h.includes('sucursal')
+  );
+
+  const tieneVenta = headersLower.some(h =>
+    h.includes('vta') || h.includes('venta') || h.includes('participacion') ||
+    (h.includes('%') && (h.includes('vta') || h.includes('venta') || h.includes('participacion')))
+  );
+
+  if (!tieneLocal) {
+    return {
+      valido: false,
+      error: 'Falta columna "Local" en el archivo de PARTICIPACIÓN. El formato debe ser: Local, % VTA'
+    };
+  }
+
+  if (!tieneVenta) {
+    return {
+      valido: false,
+      error: 'Falta columna "% VTA" en el archivo de PARTICIPACIÓN. El formato debe ser: Local, % VTA'
+    };
+  }
+
+  // VALIDACIÓN ADICIONAL: No debe tener más de 3 columnas (para evitar confusion con stock)
+  if (headers.length > 3) {
+    return {
+      valido: false,
+      error: 'El archivo de PARTICIPACIÓN debe tener solo 2-3 columnas (Local, % VTA). Este archivo tiene demasiadas columnas. ¿Es un archivo de Stock?'
     };
   }
 
@@ -149,9 +234,9 @@ export const validarParticipacion = (data) => {
   }
 
   // Advertencia si la suma no es ~100%
-  const mensaje = `Archivo válido: ${filasConDatos} locales detectados`;
+  const mensaje = `✅ Archivo de Participación válido: ${filasConDatos} locales detectados`;
   const advertencia = Math.abs(sumaParticipacion - 100) > 5
-    ? ` (Advertencia: La suma de participaciones es ${sumaParticipacion.toFixed(1)}%, debería ser cercana a 100%)`
+    ? ` ⚠️ (Advertencia: La suma de participaciones es ${sumaParticipacion.toFixed(1)}%, debería ser cercana a 100%)`
     : '';
 
   return {
@@ -163,8 +248,9 @@ export const validarParticipacion = (data) => {
 };
 
 /**
- * Valida que el archivo de prioridad tenga el formato correcto
+ * Valida que el archivo de prioridad tenga el formato correcto Y SOLO sea prioridad
  * Formato esperado: SKU, Prioridad, Capacidad, Categoria
+ * NO DEBE contener: Talle, Color, % VTA
  */
 export const validarPrioridad = (data) => {
   if (!data || data.length < 2) {
@@ -180,32 +266,51 @@ export const validarPrioridad = (data) => {
   if (headers.length < 2) {
     return {
       valido: false,
-      error: 'El archivo debe tener al menos 2 columnas (SKU, Prioridad, Capacidad, Categoria)'
+      error: 'El archivo debe tener al menos 2 columnas (SKU, Prioridad, [Capacidad], [Categoria])'
     };
   }
 
-  // Verificar columnas requeridas (case-insensitive)
   const headersLower = headers.map(h => h.toLowerCase().trim());
 
-  const hasSKU = headersLower.some(h =>
+  // VALIDACIÓN ESTRICTA: Detectar si NO es un archivo de prioridad
+  const tieneTalle = headersLower.some(h => h.includes('talle') || h.includes('size'));
+  const tieneColor = headersLower.some(h => h.includes('color'));
+  const tieneVTA = headersLower.some(h => h.includes('vta') || h.includes('venta'));
+
+  if (tieneTalle && tieneColor) {
+    return {
+      valido: false,
+      error: '❌ Este archivo parece ser de STOCK (contiene columnas Talle, Color). Por favor súbelo en la sección de Stock, no en Prioridad.'
+    };
+  }
+
+  if (tieneVTA) {
+    return {
+      valido: false,
+      error: '❌ Este archivo parece ser de PARTICIPACIÓN (contiene columna "% VTA"). Por favor súbelo en la sección de Participación, no en Prioridad.'
+    };
+  }
+
+  // Verificar columnas requeridas para PRIORIDAD
+  const tieneSKU = headersLower.some(h =>
     h.includes('sku') || h.includes('producto') || h.includes('codigo')
   );
 
-  const hasPrioridad = headersLower.some(h =>
+  const tienePrioridad = headersLower.some(h =>
     h.includes('prioridad') || h.includes('priority')
   );
 
-  if (!hasSKU) {
+  if (!tieneSKU) {
     return {
       valido: false,
-      error: 'Falta columna "SKU" en el archivo de prioridad. El formato debe ser: SKU, Prioridad, Capacidad, Categoria'
+      error: 'Falta columna "SKU" en el archivo de PRIORIDAD. El formato debe ser: SKU, Prioridad, Capacidad, Categoria'
     };
   }
 
-  if (!hasPrioridad) {
+  if (!tienePrioridad) {
     return {
       valido: false,
-      error: 'Falta columna "Prioridad" en el archivo de prioridad. El formato debe ser: SKU, Prioridad, Capacidad, Categoria'
+      error: 'Falta columna "Prioridad" en el archivo de PRIORIDAD. El formato debe ser: SKU, Prioridad, Capacidad, Categoria'
     };
   }
 
@@ -234,9 +339,9 @@ export const validarPrioridad = (data) => {
   if (!hasCapacidad) opcionalesFaltantes.push('Capacidad');
   if (!hasCategoria) opcionalesFaltantes.push('Categoria');
 
-  let mensaje = `Archivo válido: ${filasConDatos} productos detectados`;
+  let mensaje = `✅ Archivo de Prioridad válido: ${filasConDatos} productos detectados`;
   if (opcionalesFaltantes.length > 0) {
-    mensaje += ` (Columnas opcionales faltantes: ${opcionalesFaltantes.join(', ')})`;
+    mensaje += ` ℹ️ (Columnas opcionales faltantes: ${opcionalesFaltantes.join(', ')})`;
   }
 
   return {
