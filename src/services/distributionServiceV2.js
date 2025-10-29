@@ -827,6 +827,19 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
 
         const unidadesDesdeDeposito = Math.min(unidadesPendientes, deposito.cantidadDisponible);
 
+        // Saltar si origen === destino (la mercadería ya está ahí)
+        if (deposito.nombre === sucursal) {
+          log('TRANSFERENCIAS', `Omitida auto-transferencia: ${sku} en ${sucursal} (${unidadesDesdeDeposito} unidades ya están en destino)`, {
+            sku,
+            sucursal,
+            unidades: unidadesDesdeDeposito
+          });
+
+          deposito.cantidadDisponible -= unidadesDesdeDeposito;
+          unidadesPendientes -= unidadesDesdeDeposito;
+          continue;
+        }
+
         // Obtener motivo específico basado en reglas aplicadas
         const motivo = obtenerMotivoTransferencia(sku, sucursal);
         const reglaAplicada = motivo.includes('CROSS-R2') ? 'CROSS-R2'
