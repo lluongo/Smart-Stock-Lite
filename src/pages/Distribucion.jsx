@@ -18,7 +18,7 @@ import {
   generarDistribucionAutomatica,
   exportarDistribucionCompleta,
   exportarDistribucionCSV
-} from '../services/distributionService';
+} from '../services/distributionServiceV2';
 
 const Distribucion = () => {
   const navigate = useNavigate();
