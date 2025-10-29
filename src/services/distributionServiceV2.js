@@ -263,7 +263,7 @@ const consolidarPorSKU = (productos) => {
   const skusConsolidados = {};
 
   productos.forEach(producto => {
-    const { sku, cantidad, deposito } = producto;
+    const { sku, cantidad, deposito, coddep } = producto;
 
     if (!skusConsolidados[sku]) {
       skusConsolidados[sku] = {
@@ -273,15 +273,38 @@ const consolidarPorSKU = (productos) => {
       };
     }
 
+    // Acumular cantidad total
     skusConsolidados[sku].cantidadTotal += cantidad;
-    skusConsolidados[sku].depositos.push({
-      nombre: deposito || 'Sin nombre',
-      coddep: producto.coddep,
-      cantidad: cantidad
-    });
+
+    // Buscar si el depósito ya existe en la lista
+    const depositoExistente = skusConsolidados[sku].depositos.find(
+      d => d.nombre === (deposito || 'Sin nombre')
+    );
+
+    if (depositoExistente) {
+      // Si existe, sumar cantidades
+      depositoExistente.cantidad += cantidad;
+    } else {
+      // Si no existe, agregar nuevo
+      skusConsolidados[sku].depositos.push({
+        nombre: deposito || 'Sin nombre',
+        coddep: coddep,
+        cantidad: cantidad
+      });
+    }
   });
 
   log('CONSOLIDACION', `SKUs consolidados: ${Object.keys(skusConsolidados).length} únicos`);
+
+  // Logging mejorado: mostrar ejemplo con depósitos consolidados
+  const ejemploSKU = Object.values(skusConsolidados)[0];
+  if (ejemploSKU) {
+    const depositosUnicos = ejemploSKU.depositos.length;
+    const depositosDetalle = ejemploSKU.depositos.slice(0, 3).map(d => `${d.nombre}:${d.cantidad}`).join(', ');
+    log('CONSOLIDACION', `Ejemplo: ${ejemploSKU.sku} = ${ejemploSKU.cantidadTotal} unidades desde ${depositosUnicos} depósito(s) únicos`, {
+      depositos: depositosDetalle
+    });
+  }
 
   return skusConsolidados;
 };
