@@ -6,36 +6,33 @@ import {
   CheckCircle,
   Download,
   RefreshCw,
-  BarChart3,
-  Store,
   Package,
+  Store,
   TrendingUp,
-  Info
+  FileText,
+  Activity
 } from 'lucide-react';
 import {
-  parsearArchivoDistribucion,
   generarDistribucionAutomatica,
+  exportarDistribucionCompleta,
   exportarDistribucionCSV
 } from '../services/distributionService';
 
 const Distribucion = () => {
   const navigate = useNavigate();
-  const { distributionFileData } = useApp();
+  const { stockData, participacionData, prioridadData } = useApp();
 
-  const [distribucionDetallada, setDistribucionDetallada] = useState([]);
-  const [resumenTiendas, setResumenTiendas] = useState(null);
-  const [validacion, setValidacion] = useState(null);
-  const [justificacion, setJustificacion] = useState(null);
+  const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
-  const [datosParsed, setDatosParsed] = useState(null);
+  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, transferencias, resumen, log
 
   // Calcular distribución al cargar datos
   useEffect(() => {
-    if (distributionFileData && distributionFileData.length > 0) {
+    if (stockData.length > 0 && participacionData.length > 0) {
       calcularDistribucion();
     }
-  }, [distributionFileData]);
+  }, [stockData, participacionData, prioridadData]);
 
   const calcularDistribucion = () => {
     setCargando(true);
@@ -43,21 +40,22 @@ const Distribucion = () => {
 
     try {
       // Validar datos
-      if (!distributionFileData || distributionFileData.length < 7) {
-        throw new Error('Archivo incompleto. Debe tener al menos 7 filas (encabezados + porcentajes + productos).');
+      if (!stockData || stockData.length < 2) {
+        throw new Error('No hay datos de stock cargados. Por favor, carga el archivo de Stock en "Cargar Datos".');
       }
 
-      // Parsear archivo
-      const { productos, porcentajes, tiendas } = parsearArchivoDistribucion(distributionFileData);
-      setDatosParsed({ productos, porcentajes, tiendas });
+      if (!participacionData || participacionData.length < 2) {
+        throw new Error('No hay datos de participación cargados. Por favor, carga el archivo de Participación en "Cargar Datos".');
+      }
 
-      // Generar distribución automática
-      const resultado = generarDistribucionAutomatica(productos, porcentajes);
+      // Generar distribución
+      const result = generarDistribucionAutomatica(
+        stockData,
+        participacionData,
+        prioridadData || []
+      );
 
-      setDistribucionDetallada(resultado.distribucionDetallada);
-      setResumenTiendas(resultado.resumenTiendas);
-      setValidacion(resultado.validacion);
-      setJustificacion(resultado.justificacion);
+      setResultado(result);
     } catch (err) {
       setError(err.message);
       console.error('Error al calcular distribución:', err);
@@ -66,16 +64,24 @@ const Distribucion = () => {
     }
   };
 
-  const handleExportarCSV = () => {
-    if (distribucionDetallada.length === 0) {
+  const handleExportarExcel = () => {
+    if (!resultado) {
       alert('No hay datos para exportar');
       return;
     }
-    exportarDistribucionCSV(distribucionDetallada);
+    exportarDistribucionCompleta(resultado);
+  };
+
+  const handleExportarCSV = () => {
+    if (!resultado || !resultado.distribucionDetallada) {
+      alert('No hay datos para exportar');
+      return;
+    }
+    exportarDistribucionCSV(resultado.distribucionDetallada);
   };
 
   // Si no hay datos cargados
-  if (!distributionFileData || distributionFileData.length === 0) {
+  if (!stockData || stockData.length === 0 || !participacionData || participacionData.length === 0) {
     return (
       <div className="p-6">
         <div className="card bg-yellow-50 border-yellow-200">
@@ -83,24 +89,16 @@ const Distribucion = () => {
             <AlertCircle className="w-6 h-6 text-yellow-600 mt-1" />
             <div>
               <h3 className="text-lg font-bold text-yellow-900 mb-2">
-                Archivo de distribución no cargado
+                Archivos no cargados
               </h3>
               <p className="text-yellow-700 mb-4">
-                Para usar la distribución automática, debes cargar un archivo con el siguiente formato:
+                Para usar la distribución automática, debes cargar los siguientes archivos:
               </p>
-              <div className="bg-white p-4 rounded-lg border border-yellow-200 mb-4 text-sm">
-                <p className="font-medium text-gray-900 mb-2">Estructura requerida:</p>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• <strong>Columna A:</strong> talle (ej: 38, M, L)</li>
-                  <li>• <strong>Columna B:</strong> color (ej: Azul, Rojo)</li>
-                  <li>• <strong>Columna C:</strong> cantidad_total (unidades disponibles)</li>
-                  <li>• <strong>Fila 6:</strong> porcentajes de distribución por tienda</li>
-                  <li>• <strong>Columnas D+:</strong> cada columna representa una tienda</li>
-                </ul>
-                <p className="mt-3 text-xs text-gray-600">
-                  ⚠️ Los porcentajes en la fila 6 deben sumar exactamente 100%
-                </p>
-              </div>
+              <ul className="list-disc list-inside text-yellow-700 mb-4 space-y-1">
+                <li><strong>Stock</strong> (obligatorio): Inventario disponible</li>
+                <li><strong>Participación</strong> (obligatorio): % por sucursal</li>
+                <li><strong>Prioridad</strong> (opcional): Ranking de productos</li>
+              </ul>
               <button
                 onClick={() => navigate('/cargar-datos')}
                 className="btn-primary"
@@ -123,17 +121,27 @@ const Distribucion = () => {
             Distribución Automática
           </h1>
           <p className="text-gray-500 mt-1">
-            Algoritmo de Mayor Resto (Hamilton) - Sin stock sin asignar
+            Hamilton + Reglas de Negocio R1-R8 - Sin stock sin asignar
           </p>
         </div>
-        <button
-          onClick={calcularDistribucion}
-          disabled={cargando}
-          className="btn-secondary flex items-center space-x-2"
-        >
-          <RefreshCw className={`w-5 h-5 ${cargando ? 'animate-spin' : ''}`} />
-          <span>Recalcular</span>
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={calcularDistribucion}
+            disabled={cargando}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <RefreshCw className={`w-5 h-5 ${cargando ? 'animate-spin' : ''}`} />
+            <span>Recalcular</span>
+          </button>
+          <button
+            onClick={handleExportarExcel}
+            disabled={!resultado}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <Download className="w-5 h-5" />
+            <span>Exportar Excel (4 hojas)</span>
+          </button>
+        </div>
       </div>
 
       {/* Error message */}
@@ -149,46 +157,48 @@ const Distribucion = () => {
         </div>
       )}
 
-      {/* Validación */}
-      {validacion && (
-        <div className={`card ${validacion.esValido ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      {/* Check Sum Validación */}
+      {resultado && resultado.checkSum && (
+        <div className={`card ${resultado.checkSum.esValido ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           <div className="flex items-start space-x-3">
-            {validacion.esValido ? (
+            {resultado.checkSum.esValido ? (
               <CheckCircle className="w-6 h-6 text-green-600 mt-1" />
             ) : (
               <AlertCircle className="w-6 h-6 text-red-600 mt-1" />
             )}
             <div className="flex-1">
-              <h3 className={`text-lg font-bold mb-2 ${validacion.esValido ? 'text-green-900' : 'text-red-900'}`}>
-                Validación de Consistencia
+              <h3 className={`text-lg font-bold mb-2 ${resultado.checkSum.esValido ? 'text-green-900' : 'text-red-900'}`}>
+                ✅ Validación Check Sum
               </h3>
-              <p className={validacion.esValido ? 'text-green-700' : 'text-red-700'}>
-                {validacion.mensaje}
-              </p>
-              <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600">Total Original</p>
-                  <p className="text-xl font-bold text-gray-900">{validacion.totalOriginal}</p>
+                  <p className="text-xl font-bold text-gray-900">{resultado.checkSum.totalOriginal}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Total Distribuido</p>
-                  <p className="text-xl font-bold text-gray-900">{validacion.totalDistribuido}</p>
+                  <p className="text-xl font-bold text-gray-900">{resultado.checkSum.totalDistribuido}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Diferencia</p>
-                  <p className={`text-xl font-bold ${validacion.diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {validacion.diferencia}
+                  <p className={`text-xl font-bold ${resultado.checkSum.diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {resultado.checkSum.diferencia}
                   </p>
                 </div>
               </div>
+              {resultado.checkSum.esValido && (
+                <p className="text-green-700 mt-3">
+                  ✅ 100% del stock asignado correctamente
+                </p>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Estadísticas principales */}
-      {datosParsed && resumenTiendas && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {resultado && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="card bg-primary-50 border-primary-100">
             <div className="flex items-center justify-between">
               <div>
@@ -196,7 +206,7 @@ const Distribucion = () => {
                   Total Productos
                 </p>
                 <p className="text-3xl font-bold text-primary-700 mt-1">
-                  {datosParsed.productos.length}
+                  {resultado.productos.length}
                 </p>
               </div>
               <Package className="w-10 h-10 text-primary-400" />
@@ -207,10 +217,10 @@ const Distribucion = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-secondary-600 font-medium">
-                  Tiendas Destino
+                  Sucursales
                 </p>
                 <p className="text-3xl font-bold text-secondary-700 mt-1">
-                  {datosParsed.tiendas.length}
+                  {resultado.sucursales.length}
                 </p>
               </div>
               <Store className="w-10 h-10 text-secondary-400" />
@@ -224,201 +234,276 @@ const Distribucion = () => {
                   Asignaciones
                 </p>
                 <p className="text-3xl font-bold text-green-700 mt-1">
-                  {distribucionDetallada.length}
+                  {resultado.distribucionDetallada.length}
                 </p>
               </div>
               <TrendingUp className="w-10 h-10 text-green-400" />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Resumen por Tienda */}
-      {resumenTiendas && (
-        <div className="card">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Resumen por Tienda
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Tienda
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Unidades Asignadas
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    % Esperado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    % Real
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Desviación
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {Object.entries(resumenTiendas).map(([tienda, datos]) => {
-                  const desviacion = (parseFloat(datos.porcentajeReal) - datos.porcentajeEsperado).toFixed(2);
-                  return (
-                    <tr key={tienda} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {tienda}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {datos.unidadesAsignadas}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {datos.porcentajeEsperado.toFixed(2)}%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {datos.porcentajeReal}%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${
-                          Math.abs(desviacion) < 0.5 ? 'text-green-600' : 'text-yellow-600'
-                        }`}>
-                          {desviacion > 0 ? '+' : ''}{desviacion}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Justificación */}
-      {justificacion && (
-        <div className="card bg-blue-50 border-blue-200">
-          <div className="flex items-start space-x-3">
-            <Info className="w-6 h-6 text-blue-600 mt-1" />
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-blue-900 mb-2">
-                Justificación de la Distribución
-              </h3>
-              <p className="text-blue-700 mb-3">
-                {justificacion.explicacion}
-              </p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium text-blue-900">Total de productos procesados:</p>
-                  <p className="text-blue-700">{justificacion.totalProductos}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-blue-900">Productos con ajustes:</p>
-                  <p className="text-blue-700">{justificacion.totalAjustes}</p>
-                </div>
+          <div className="card bg-blue-50 border-blue-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium">
+                  Transferencias
+                </p>
+                <p className="text-3xl font-bold text-blue-700 mt-1">
+                  {resultado.transferencias.length}
+                </p>
               </div>
-              {justificacion.detalleAjustes.length > 0 && (
-                <div className="mt-3">
-                  <p className="font-medium text-blue-900 mb-2">Detalle de ajustes por redondeo:</p>
-                  <div className="bg-white p-3 rounded-lg border border-blue-200 max-h-40 overflow-y-auto">
-                    {justificacion.detalleAjustes.map((ajuste, idx) => (
-                      <div key={idx} className="text-xs text-gray-700 mb-1">
-                        • {ajuste.talle} - {ajuste.color} (Total: {ajuste.cantidadTotal}, Ajustes: {ajuste.ajustes})
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <Activity className="w-10 h-10 text-blue-400" />
             </div>
           </div>
         </div>
       )}
 
-      {/* Tabla de Distribución Detallada */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">
-            Distribución Detallada ({distribucionDetallada.length} asignaciones)
-          </h2>
-          <button
-            onClick={handleExportarCSV}
-            disabled={distribucionDetallada.length === 0}
-            className="btn-secondary text-sm flex items-center space-x-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exportar CSV</span>
-          </button>
-        </div>
+      {/* Tabs */}
+      {resultado && (
+        <div className="card">
+          <div className="border-b border-gray-200">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setTabActiva('distribucion')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  tabActiva === 'distribucion'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Package className="w-4 h-4 inline mr-2" />
+                Distribución Final
+              </button>
+              <button
+                onClick={() => setTabActiva('transferencias')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  tabActiva === 'transferencias'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 inline mr-2" />
+                Transferencias
+              </button>
+              <button
+                onClick={() => setTabActiva('resumen')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  tabActiva === 'resumen'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Store className="w-4 h-4 inline mr-2" />
+                Resumen Sucursales
+              </button>
+              <button
+                onClick={() => setTabActiva('log')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  tabActiva === 'log'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <FileText className="w-4 h-4 inline mr-2" />
+                Log Trazabilidad ({resultado.trazabilidad.length})
+              </button>
+            </nav>
+          </div>
 
-        {distribucionDetallada.length === 0 ? (
-          <div className="text-center py-12">
-            <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">
-              No hay datos para mostrar. Carga un archivo de distribución.
-            </p>
+          <div className="p-6">
+            {/* TAB: Distribución Final */}
+            {tabActiva === 'distribucion' && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipología</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {resultado.distribucionDetallada.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.sku}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.tipologia}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.nombreColor || item.color}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.medida}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.sucursal}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{item.unidades}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.cuotaExacta}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* TAB: Transferencias */}
+            {tabActiva === 'transferencias' && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Origen</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destino</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {resultado.transferencias.map((t, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.sku}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.talle}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.color}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.origen}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.destino}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{t.unidades}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.motivo}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.prioridad}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* TAB: Resumen Sucursales */}
+            {tabActiva === 'resumen' && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Unidades</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% Esperado</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% Real</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Desviación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Object.entries(resultado.resumenSucursales).map(([suc, datos]) => {
+                      const desviacion = (parseFloat(datos.participacionReal) - datos.participacionEsperada).toFixed(2);
+                      return (
+                        <tr key={suc} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{suc}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{datos.totalUnidades}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{datos.participacionEsperada.toFixed(2)}%</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{datos.participacionReal}%</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`text-sm font-medium ${
+                              Math.abs(desviacion) < 0.5 ? 'text-green-600' : 'text-yellow-600'
+                            }`}>
+                              {desviacion > 0 ? '+' : ''}{desviacion}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* TAB: Log Trazabilidad */}
+            {tabActiva === 'log' && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Regla</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Temporada</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {resultado.trazabilidad.map((log, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">{log.regla}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sku || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sucursal || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.producto || log.tipologia || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{log.motivo}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.prioridad || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.temporada || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Talle
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Color
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Tienda
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Unidades Asignadas
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Cuota Exacta
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Residuo
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {distribucionDetallada.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.talle}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {item.color}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {item.tienda}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                      {item.unidadesAsignadas}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {item.cuotaExacta}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.residuo}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        </div>
+      )}
+
+      {/* Reglas Aplicadas */}
+      {resultado && (
+        <div className="card bg-blue-50 border-blue-200">
+          <h3 className="text-lg font-bold text-blue-900 mb-3">
+            Reglas de Negocio Aplicadas
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-700">
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R1:</strong> Mantener curva entera (TIPOLOGIA + Color)</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R2:</strong> Sobrantes según necesidad del local</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R3:</strong> Locales grandes NO sacan mercadería</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R4:</strong> Minimizar movimientos inter-local</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R5:</strong> Limpieza de curvas rotas existentes</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R6:</strong> Interior se acomoda entre ellos</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R7:</strong> Categoría + prioridad (trazabilidad)</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span><strong>R8:</strong> UTA se acumula (análisis futuro IA)</span>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Algoritmo Info */}
       <div className="card bg-gray-50 border-gray-200">
         <h3 className="text-sm font-bold text-gray-900 mb-2">
-          Algoritmo de Mayor Resto (Hamilton)
+          Algoritmo de Hamilton + Reglas de Negocio
         </h3>
+        <p className="text-xs text-gray-700 mb-2">
+          <strong>Capa 1:</strong> Algoritmo de Mayor Resto (Hamilton) - Distribución matemática exacta sin residuos.
+        </p>
+        <p className="text-xs text-gray-700 mb-2">
+          <strong>Capa 2:</strong> Reglas R1-R8 aplicadas secuencialmente para optimizar curvas y minimizar movimientos.
+        </p>
         <p className="text-xs text-gray-700">
-          Este algoritmo garantiza que todas las unidades sean distribuidas sin dejar residuo.
-          Primero asigna la parte entera de cada cuota, y luego distribuye las unidades restantes
-          a las tiendas con mayor residuo decimal, asegurando que la suma total coincida exactamente
-          con el stock original.
+          <strong>Resultado:</strong> 100% del stock distribuido con trazabilidad completa.
         </p>
       </div>
     </div>
