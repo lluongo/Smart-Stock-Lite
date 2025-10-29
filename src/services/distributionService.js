@@ -141,30 +141,57 @@ export const parsearParticipacion = (data) => {
     throw new Error('Archivo de participación vacío o inválido');
   }
 
-  const participaciones = {};
-  let sumaTotal = 0;
+  const datosTemporales = [];
+  let sumaRaw = 0;
 
+  // Paso 1: Leer todos los valores primero
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length < 2) continue;
 
     const sucursal = String(row[0] || '').trim();
-    let participacion = parseFloat(row[1]);
+    const participacion = parseFloat(row[1]);
 
     if (sucursal && !isNaN(participacion) && participacion > 0) {
-      // Convertir a porcentaje si viene en decimal (0.25 → 25)
-      if (participacion < 1) {
-        participacion = participacion * 100;
-      }
-
-      participaciones[sucursal] = participacion;
-      sumaTotal += participacion;
+      datosTemporales.push({ sucursal, participacion });
+      sumaRaw += participacion;
     }
   }
 
-  // Validar que sume ~100%
-  if (Math.abs(sumaTotal - 100) > 1) {
-    throw new Error(`Los porcentajes deben sumar 100%. Suma actual: ${sumaTotal.toFixed(2)}%`);
+  if (datosTemporales.length === 0) {
+    throw new Error('No se encontraron datos válidos de participación');
+  }
+
+  // Paso 2: Determinar si los valores están en formato decimal (0-1) o porcentaje (0-100)
+  const enFormatoDecimal = sumaRaw < 10; // Si la suma es menor a 10, asumimos formato decimal
+  const multiplicador = enFormatoDecimal ? 100 : 1;
+
+  // Paso 3: Convertir todos los valores y calcular suma final
+  const participaciones = {};
+  let sumaTotal = 0;
+
+  datosTemporales.forEach(({ sucursal, participacion }) => {
+    const valorFinal = participacion * multiplicador;
+    participaciones[sucursal] = valorFinal;
+    sumaTotal += valorFinal;
+  });
+
+  // Paso 4: Normalizar si no suma exactamente 100%
+  if (Math.abs(sumaTotal - 100) > 0.01) {
+    // Si está muy lejos de 100%, mostrar error
+    if (Math.abs(sumaTotal - 100) > 10) {
+      throw new Error(
+        `Los porcentajes están muy alejados de 100%. Suma actual: ${sumaTotal.toFixed(2)}%\n\n` +
+        `Por favor revisa tus datos de participación. Deben sumar aproximadamente 100%.`
+      );
+    }
+
+    // Si está cerca de 100% (entre 90% y 110%), normalizar automáticamente
+    console.log(`⚠️ Normalizando porcentajes: ${sumaTotal.toFixed(2)}% → 100%`);
+    const factor = 100 / sumaTotal;
+    Object.keys(participaciones).forEach(suc => {
+      participaciones[suc] = participaciones[suc] * factor;
+    });
   }
 
   return participaciones;
