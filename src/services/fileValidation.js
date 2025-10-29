@@ -171,7 +171,7 @@ export const validarParticipacion = (data) => {
     };
   }
 
-  // Verificar datos
+  // Verificar datos y sumar participación
   let filasConDatos = 0;
   let sumaParticipacion = 0;
 
@@ -179,8 +179,12 @@ export const validarParticipacion = (data) => {
     const row = data[i];
     if (row && row.length >= 2 && row[0]) {
       filasConDatos++;
-      const participacion = parseFloat(row[1]);
+      let participacion = parseFloat(row[1]);
       if (!isNaN(participacion)) {
+        // Convertir a porcentaje si viene en decimal (0.25 → 25)
+        if (participacion < 1 && participacion > 0) {
+          participacion = participacion * 100;
+        }
         sumaParticipacion += participacion;
       }
     }
@@ -193,14 +197,18 @@ export const validarParticipacion = (data) => {
     };
   }
 
-  const mensaje = `✅ Archivo de Participación válido: ${filasConDatos} registros detectados`;
-  const advertencia = Math.abs(sumaParticipacion - 100) > 5
-    ? ` ⚠️ (La suma de participación es ${sumaParticipacion.toFixed(1)}%, debería ser ~100%)`
-    : '';
+  // VALIDACIÓN ESTRICTA: Rechazar si no suma 100% (tolerancia ±0.5%)
+  if (Math.abs(sumaParticipacion - 100) > 0.5) {
+    return {
+      valido: false,
+      error: `❌ ARCHIVO RECHAZADO: Los porcentajes deben sumar 100%.\n\nSuma actual: ${sumaParticipacion.toFixed(2)}%\nDiferencia: ${(sumaParticipacion - 100).toFixed(2)}%\n\n` +
+             `Por favor ajusta los valores de participación para que sumen exactamente 100%.`
+    };
+  }
 
   return {
     valido: true,
-    mensaje: mensaje + advertencia,
+    mensaje: `✅ Archivo de Participación válido: ${filasConDatos} registros - Suma: ${sumaParticipacion.toFixed(2)}%`,
     filas: filasConDatos,
     sumaParticipacion
   };

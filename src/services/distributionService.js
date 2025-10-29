@@ -176,22 +176,14 @@ export const parsearParticipacion = (data) => {
     sumaTotal += valorFinal;
   });
 
-  // Paso 4: Normalizar si no suma exactamente 100%
-  if (Math.abs(sumaTotal - 100) > 0.01) {
-    // Si está muy lejos de 100%, mostrar error
-    if (Math.abs(sumaTotal - 100) > 10) {
-      throw new Error(
-        `Los porcentajes están muy alejados de 100%. Suma actual: ${sumaTotal.toFixed(2)}%\n\n` +
-        `Por favor revisa tus datos de participación. Deben sumar aproximadamente 100%.`
-      );
-    }
-
-    // Si está cerca de 100% (entre 90% y 110%), normalizar automáticamente
-    console.log(`⚠️ Normalizando porcentajes: ${sumaTotal.toFixed(2)}% → 100%`);
-    const factor = 100 / sumaTotal;
-    Object.keys(participaciones).forEach(suc => {
-      participaciones[suc] = participaciones[suc] * factor;
-    });
+  // Paso 4: Validación ESTRICTA - Rechazar si no suma 100% (tolerancia ±0.5%)
+  if (Math.abs(sumaTotal - 100) > 0.5) {
+    throw new Error(
+      `❌ ARCHIVO RECHAZADO: Los porcentajes deben sumar 100%.\n\n` +
+      `Suma actual: ${sumaTotal.toFixed(2)}%\n` +
+      `Diferencia: ${(sumaTotal - 100).toFixed(2)}%\n\n` +
+      `Por favor ajusta los valores de participación para que sumen exactamente 100%.`
+    );
   }
 
   return participaciones;
