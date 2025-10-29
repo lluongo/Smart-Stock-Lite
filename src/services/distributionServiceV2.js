@@ -938,6 +938,19 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   });
 
   log('TRANSFERENCIAS', `Generadas: ${transferencias.length} movimientos`);
+
+  // Ordenar transferencias por SKU, Origen, Destino, Cantidad
+  transferencias.sort((a, b) => {
+    // 1. Por SKU
+    if (a.sku !== b.sku) return a.sku.localeCompare(b.sku);
+    // 2. Por Origen
+    if (a.origen !== b.origen) return a.origen.localeCompare(b.origen);
+    // 3. Por Destino
+    if (a.destino !== b.destino) return a.destino.localeCompare(b.destino);
+    // 4. Por Cantidad (descendente)
+    return b.unidades - a.unidades;
+  });
+
   log('FIN', '✅ Distribución completada');
 
   return {
