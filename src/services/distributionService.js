@@ -460,7 +460,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   const distribucionDetallada = [];
 
   productos.forEach(producto => {
-    const { sku, cantidad, tipologia, color, medida, nombreColor, origen, temporada } = producto;
+    const { sku, cantidad, tipologia, color, medida, nombreColor, origen, temporada, deposito } = producto;
 
     // Aplicar Hamilton
     const resultado = algoritmoHamilton(cantidad, participaciones);
@@ -479,6 +479,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
           unidades,
           cuotaExacta: resultado.cuotas[sucursal].toFixed(2),
           residuo: resultado.residuos[sucursal].toFixed(4),
+          deposito,
           origen,
           temporada,
           prioridad: prioridades[tipologia] || 999
@@ -530,7 +531,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
     esValido: totalOriginal === totalUnidadesDistribuidas
   };
 
-  // Paso 6: Generar transferencias (para distribución inicial no hay transferencias inter-local)
+  // Paso 6: Generar transferencias con depósito de origen real
   const transferencias = [];
   distribucionDetallada.forEach(item => {
     if (item.unidades > 0) {
@@ -538,7 +539,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
         sku: item.sku,
         talle: item.medida,
         color: item.nombreColor || item.color,
-        origen: 'Depósito Central',
+        origen: item.deposito || 'Depósito sin nombre',
         destino: item.sucursal,
         unidades: item.unidades,
         motivo: 'Distribución inicial Hamilton',
@@ -572,7 +573,7 @@ export const exportarDistribucionCompleta = (resultado) => {
 
   // HOJA 1: Distribución Final
   const hoja1Data = [
-    ['SKU', 'TIPOLOGIA', 'Color', 'Medida', 'Sucursal', 'Unidades', 'Cuota Exacta', 'Residuo']
+    ['SKU', 'TIPOLOGIA', 'Color', 'Medida', 'Depósito Origen', 'Sucursal Destino', 'Unidades', 'Cuota Exacta', 'Residuo']
   ];
 
   resultado.distribucionDetallada.forEach(item => {
@@ -581,6 +582,7 @@ export const exportarDistribucionCompleta = (resultado) => {
       item.tipologia,
       item.nombreColor || item.color,
       item.medida,
+      item.deposito || 'Sin depósito',
       item.sucursal,
       item.unidades,
       item.cuotaExacta,

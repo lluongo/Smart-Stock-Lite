@@ -399,7 +399,8 @@ const Distribucion = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipología</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Depósito Origen</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal Destino</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
                         </tr>
@@ -411,6 +412,7 @@ const Distribucion = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.tipologia}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.nombreColor || item.color}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.medida}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.deposito || '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.sucursal}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{item.unidades}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.cuotaExacta}</td>
