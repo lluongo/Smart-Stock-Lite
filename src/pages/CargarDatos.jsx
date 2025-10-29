@@ -7,36 +7,41 @@ import { validarArchivo } from '../services/fileValidation';
 
 const CargarDatos = () => {
   const navigate = useNavigate();
-  const { setStockData, setParticipacionData, setPrioridadData } = useApp();
+  const { setStockData, setParticipacionData, setPrioridadData, setDistributionFileData } = useApp();
 
   const [files, setFiles] = useState({
     stock: null,
     participacion: null,
     prioridad: null,
+    distribucionAuto: null,
   });
 
   const [previews, setPreviews] = useState({
     stock: null,
     participacion: null,
     prioridad: null,
+    distribucionAuto: null,
   });
 
   const [validations, setValidations] = useState({
     stock: null,
     participacion: null,
     prioridad: null,
+    distribucionAuto: null,
   });
 
   const [validationMessages, setValidationMessages] = useState({
     stock: null,
     participacion: null,
     prioridad: null,
+    distribucionAuto: null,
   });
 
   const [dragActive, setDragActive] = useState({
     stock: false,
     participacion: false,
     prioridad: false,
+    distribucionAuto: false,
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,6 +51,7 @@ const CargarDatos = () => {
     stock: 'Inventario por depósito (Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA)',
     participacion: 'Ranking y participación (ranking, participacion)',
     prioridad: 'Prioridad por producto (prioridad, producto)',
+    distribucionAuto: 'Distribución automática (Col A: talle, Col B: color, Col C: cantidad_total, Fila 6: % por tienda)',
   };
 
   const handleFileUpload = (type, file) => {
@@ -86,6 +92,7 @@ const CargarDatos = () => {
             if (type === 'stock') setStockData(dataFiltrada);
             if (type === 'participacion') setParticipacionData(dataFiltrada);
             if (type === 'prioridad') setPrioridadData(dataFiltrada);
+            if (type === 'distribucionAuto') setDistributionFileData(dataFiltrada);
           } else {
             // Si no es válido, limpiar preview
             setPreviews({
@@ -111,6 +118,7 @@ const CargarDatos = () => {
     if (type === 'stock') setStockData([]);
     if (type === 'participacion') setParticipacionData([]);
     if (type === 'prioridad') setPrioridadData([]);
+    if (type === 'distribucionAuto') setDistributionFileData([]);
   };
 
   const handleDrag = (e, type) => {
@@ -171,15 +179,150 @@ const CargarDatos = () => {
         </p>
       </div>
 
-      {/* File upload cards */}
+      {/* Distribución Inter-local */}
+      <div className="card bg-purple-50 border-purple-200">
+        <h2 className="text-lg font-bold text-purple-900 mb-2">
+          📊 Distribución Inter-local
+        </h2>
+        <p className="text-sm text-purple-700">
+          Carga los 3 archivos para usar el motor de distribución inter-local con reglas de negocio (R1-R7)
+        </p>
+      </div>
+
+      {/* File upload cards - Inter-local */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {Object.keys(files).map((type) => (
+        {['stock', 'participacion', 'prioridad'].map((type) => (
           <div key={type} className="card">
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 capitalize">
                     {type}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {fileDescriptions[type]}
+                  </p>
+                </div>
+                {validations[type] && (
+                  <div>
+                    {validations[type] === 'valid' ? (
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                    ) : (
+                      <XCircle className="w-6 h-6 text-red-500" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!files[type] ? (
+                <div
+                  onDragEnter={(e) => handleDrag(e, type)}
+                  onDragLeave={(e) => handleDrag(e, type)}
+                  onDragOver={(e) => handleDrag(e, type)}
+                  onDrop={(e) => handleDrop(e, type)}
+                >
+                  <label className="block">
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={(e) => handleFileUpload(type, e.target.files[0])}
+                      className="hidden"
+                    />
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all ${
+                        dragActive[type]
+                          ? 'border-primary-500 bg-primary-100 scale-105'
+                          : 'border-gray-300 hover:border-primary-500 hover:bg-primary-50'
+                      }`}
+                    >
+                      <Upload className={`w-8 h-8 mx-auto mb-2 ${
+                        dragActive[type] ? 'text-primary-600' : 'text-gray-400'
+                      }`} />
+                      <p className="text-sm text-gray-600 font-medium">
+                        {dragActive[type] ? 'Suelta el archivo aquí' : 'Arrastra el archivo o click para subir'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">CSV o Excel</p>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-700 truncate">
+                        {files[type].name}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFile(type)}
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {validations[type] === 'valid' && validationMessages[type] && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-start space-x-2">
+                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-green-700 font-medium">
+                            Archivo validado correctamente
+                          </p>
+                          {validationMessages[type].mensaje && (
+                            <p className="text-xs text-green-600 mt-1">
+                              {validationMessages[type].mensaje}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {validations[type] === 'invalid' && validationMessages[type] && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-start space-x-2">
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-red-700 font-medium">
+                            Error en formato del archivo
+                          </p>
+                          {validationMessages[type].error && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationMessages[type].error}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Distribución Automática */}
+      <div className="card bg-green-50 border-green-200">
+        <h2 className="text-lg font-bold text-green-900 mb-2">
+          🎯 Distribución Automática por Porcentajes
+        </h2>
+        <p className="text-sm text-green-700">
+          Carga 1 archivo con talles, colores y porcentajes por tienda para usar el Algoritmo de Mayor Resto (Hamilton)
+        </p>
+      </div>
+
+      {/* File upload card - Distribución Automática */}
+      <div className="grid grid-cols-1 gap-6">
+        {['distribucionAuto'].map((type) => (
+          <div key={type} className="card">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Distribución Automática
                   </h3>
                   <p className="text-xs text-gray-500 mt-1">
                     {fileDescriptions[type]}
@@ -353,24 +496,42 @@ const CargarDatos = () => {
         <h3 className="text-lg font-bold text-blue-900 mb-3">
           Formato de Archivos Requeridos
         </h3>
-        <div className="space-y-3 text-sm text-blue-700">
-          <div>
-            <p className="font-medium mb-1">📦 Stock:</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: 001, Depósito Central, AZ, Azul, M, 15, Remera, Nacional, Verano</p>
+
+        <div className="mb-4">
+          <h4 className="font-bold text-blue-900 mb-2">📊 Distribución Inter-local:</h4>
+          <div className="space-y-3 text-sm text-blue-700">
+            <div>
+              <p className="font-medium mb-1">📦 Stock:</p>
+              <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA</code></p>
+              <p className="text-xs mt-0.5">Ejemplo: 001, Depósito Central, AZ, Azul, M, 15, Remera, Nacional, Verano</p>
+            </div>
+            <div>
+              <p className="font-medium mb-1">📊 Participación:</p>
+              <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">ranking, participacion</code></p>
+              <p className="text-xs mt-0.5">Ejemplo: 1, 35.5</p>
+            </div>
+            <div>
+              <p className="font-medium mb-1">⭐ Prioridad:</p>
+              <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">prioridad, producto</code></p>
+              <p className="text-xs mt-0.5">Ejemplo: Alta, P001</p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium mb-1">📊 Participación:</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">ranking, participacion</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: 1, 35.5</p>
-          </div>
-          <div>
-            <p className="font-medium mb-1">⭐ Prioridad:</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">prioridad, producto</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: Alta, P001</p>
-          </div>
-          <div className="pt-2 border-t border-blue-300">
-            <p className="text-xs font-medium">⚠️ IMPORTANTE: Los archivos deben tener EXACTAMENTE estas columnas. No se aceptarán otros formatos.</p>
+        </div>
+
+        <div className="pt-4 border-t border-blue-300">
+          <h4 className="font-bold text-blue-900 mb-2">🎯 Distribución Automática:</h4>
+          <div className="space-y-2 text-sm text-blue-700">
+            <p className="text-xs"><strong>Estructura requerida:</strong></p>
+            <ul className="text-xs space-y-1 ml-4">
+              <li>• <strong>Columna A:</strong> talle (ej: 38, M, L)</li>
+              <li>• <strong>Columna B:</strong> color (ej: Azul, Rojo)</li>
+              <li>• <strong>Columna C:</strong> cantidad_total (unidades disponibles)</li>
+              <li>• <strong>Fila 6:</strong> porcentajes de distribución por tienda</li>
+              <li>• <strong>Columnas D+:</strong> cada columna representa una tienda (AB, ARM, PAL...)</li>
+            </ul>
+            <p className="text-xs mt-2"><strong>Ejemplo de Fila 6:</strong> (vacío), (vacío), (vacío), 25, 10, 15, 50</p>
+            <p className="text-xs"><strong>Desde Fila 7:</strong> 38, Azul, 100, (vacío), (vacío)...</p>
+            <p className="text-xs font-medium mt-2">⚠️ Los porcentajes en la fila 6 deben sumar exactamente 100%</p>
           </div>
         </div>
       </div>

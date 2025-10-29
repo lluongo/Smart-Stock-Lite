@@ -16,6 +16,7 @@ export const AppProvider = ({ children }) => {
   const [participacionData, setParticipacionData] = useState([]);
   const [prioridadData, setPrioridadData] = useState([]);
   const [distributionData, setDistributionData] = useState([]);
+  const [distributionFileData, setDistributionFileData] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const login = (email, password) => {
@@ -35,6 +36,7 @@ export const AppProvider = ({ children }) => {
     setParticipacionData([]);
     setPrioridadData([]);
     setDistributionData([]);
+    setDistributionFileData([]);
   };
 
   const value = {
@@ -44,10 +46,12 @@ export const AppProvider = ({ children }) => {
     participacionData,
     prioridadData,
     distributionData,
+    distributionFileData,
     setStockData,
     setParticipacionData,
     setPrioridadData,
     setDistributionData,
+    setDistributionFileData,
     login,
     logout,
   };

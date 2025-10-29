@@ -296,6 +296,65 @@ export const validarPrioridad = (data) => {
 };
 
 /**
+ * Valida archivo de DISTRIBUCIÓN AUTOMÁTICA
+ * Estructura requerida:
+ * - Col A: talle
+ * - Col B: color
+ * - Col C: cantidad_total
+ * - Fila 6: porcentajes de distribución por tienda
+ * - Columnas D+: nombres de tiendas
+ */
+export const validarDistribucionAuto = (data) => {
+  if (!data || data.length < 7) {
+    return {
+      valido: false,
+      error: 'El archivo debe tener al menos 7 filas (encabezados + fila de porcentajes + productos)'
+    };
+  }
+
+  // Verificar que haya al menos 3 columnas (talle, color, cantidad_total)
+  const primeraFila = data[0];
+  if (!primeraFila || primeraFila.length < 3) {
+    return {
+      valido: false,
+      error: 'El archivo debe tener al menos 3 columnas (talle, color, cantidad_total)'
+    };
+  }
+
+  // Verificar que la fila 6 (índice 5) exista
+  const fila6 = data[5];
+  if (!fila6 || fila6.length < 4) {
+    return {
+      valido: false,
+      error: 'La fila 6 debe contener los porcentajes de distribución por tienda (al menos 1 tienda)'
+    };
+  }
+
+  // Verificar que haya al menos un porcentaje válido en la fila 6 (desde columna D = índice 3)
+  let tienePorcentajes = false;
+  for (let i = 3; i < fila6.length; i++) {
+    const valor = parseFloat(fila6[i]);
+    if (!isNaN(valor) && valor > 0) {
+      tienePorcentajes = true;
+      break;
+    }
+  }
+
+  if (!tienePorcentajes) {
+    return {
+      valido: false,
+      error: 'La fila 6 debe contener al menos un porcentaje válido (columnas D en adelante)'
+    };
+  }
+
+  // Validación básica pasada
+  return {
+    valido: true,
+    mensaje: `✅ Archivo válido con ${data.length - 6} productos. La validación completa se realizará al procesar.`
+  };
+};
+
+/**
  * Función principal de validación
  */
 export const validarArchivo = (type, data) => {
@@ -306,6 +365,8 @@ export const validarArchivo = (type, data) => {
       return validarParticipacion(data);
     case 'prioridad':
       return validarPrioridad(data);
+    case 'distribucionAuto':
+      return validarDistribucionAuto(data);
     default:
       return {
         valido: false,
