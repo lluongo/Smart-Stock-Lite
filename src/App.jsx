@@ -5,7 +5,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CargarDatos from './pages/CargarDatos';
 import Distribucion from './pages/Distribucion';
-import DistribucionInterlocal from './pages/DistribucionInterlocal';
 import Revision from './pages/Revision';
 import Configuracion from './pages/Configuracion';
 
@@ -36,14 +35,6 @@ function App() {
             element={
               <Layout>
                 <Distribucion />
-              </Layout>
-            }
-          />
-          <Route
-            path="/distribucion-interlocal"
-            element={
-              <Layout>
-                <DistribucionInterlocal />
               </Layout>
             }
           />
