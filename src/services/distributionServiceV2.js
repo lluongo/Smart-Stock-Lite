@@ -875,7 +875,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
 
   log('CHECKSUM', `${checkSum.esValido ? '✅ OK' : '❌ ERROR'}: Original ${totalOriginal}, Distribuido ${totalUnidadesDistribuidas}`);
 
-  // PASO 10: Generar transferencias
+  // PASO 10: Generar transferencias inteligentes (evitar enviar y recibir del mismo local)
   const transferencias = [];
 
   Object.values(skusConsolidados).forEach(skuData => {
@@ -883,36 +883,80 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
     const distribucionSKU = distribucionPorSKU[sku] || {};
     const prioridad = prioridades[tipologia] || 999;
 
-    const depositosDisponibles = depositos.map(d => ({
-      nombre: d.nombre,
-      cantidadDisponible: d.cantidad
-    }));
+    // Crear mapa de stock disponible por local/depósito
+    const stockPorLocal = {};
+    depositos.forEach(d => {
+      stockPorLocal[d.nombre] = d.cantidad;
+    });
 
-    Object.entries(distribucionSKU).forEach(([sucursal, unidadesNecesarias]) => {
-      if (unidadesNecesarias <= 0) return;
+    // Identificar necesidades y excedentes
+    const necesidadesPorSucursal = {};
+    const excedentesPorLocal = {};
 
+    Object.entries(distribucionSKU).forEach(([sucursal, cuotaAsignada]) => {
+      const stockPropio = stockPorLocal[sucursal] || 0;
+
+      if (stockPropio < cuotaAsignada) {
+        // Necesita recibir (cuota mayor que stock propio)
+        necesidadesPorSucursal[sucursal] = cuotaAsignada - stockPropio;
+        log('NECESIDADES', `${sucursal} necesita ${cuotaAsignada - stockPropio} de ${sku} (tiene ${stockPropio}, necesita ${cuotaAsignada})`);
+      } else if (stockPropio > cuotaAsignada) {
+        // Tiene excedente para enviar
+        excedentesPorLocal[sucursal] = stockPropio - cuotaAsignada;
+        log('EXCEDENTES', `${sucursal} tiene excedente de ${stockPropio - cuotaAsignada} de ${sku} (tiene ${stockPropio}, necesita ${cuotaAsignada})`);
+      } else {
+        // Stock propio === cuota, no necesita transferir
+        log('BALANCEADO', `${sucursal} tiene exactamente lo que necesita de ${sku} (${stockPropio} unidades)`);
+      }
+    });
+
+    // Distribuir desde excedentes y depósitos puros hacia necesidades
+    Object.entries(necesidadesPorSucursal).forEach(([sucursal, unidadesNecesarias]) => {
       let unidadesPendientes = unidadesNecesarias;
 
-      for (const deposito of depositosDisponibles) {
+      // PRIMERO: Usar excedentes de otros locales que participan en distribución
+      for (const [localExcedente, cantidadDisponible] of Object.entries(excedentesPorLocal)) {
         if (unidadesPendientes <= 0) break;
-        if (deposito.cantidadDisponible <= 0) continue;
+        if (excedentesPorLocal[localExcedente] <= 0) continue;
 
-        const unidadesDesdeDeposito = Math.min(unidadesPendientes, deposito.cantidadDisponible);
+        const unidadesATransferir = Math.min(unidadesPendientes, excedentesPorLocal[localExcedente]);
 
-        // Saltar si origen === destino (la mercadería ya está ahí)
-        if (deposito.nombre === sucursal) {
-          log('TRANSFERENCIAS', `Omitida auto-transferencia: ${sku} en ${sucursal} (${unidadesDesdeDeposito} unidades ya están en destino)`, {
-            sku,
-            sucursal,
-            unidades: unidadesDesdeDeposito
-          });
+        const motivo = obtenerMotivoTransferencia(sku, sucursal);
+        const reglaAplicada = motivo.includes('CROSS-R2') ? 'CROSS-R2'
+                            : motivo.includes('INTERLOCAL-R7') ? 'INTERLOCAL-R7'
+                            : 'HAMILTON';
 
-          deposito.cantidadDisponible -= unidadesDesdeDeposito;
-          unidadesPendientes -= unidadesDesdeDeposito;
-          continue;
+        transferencias.push({
+          sku,
+          talle: medida,
+          color: nombreColor || color,
+          origen: localExcedente,
+          destino: sucursal,
+          unidades: unidadesATransferir,
+          motivo,
+          reglaAplicada,
+          prioridad,
+          temporada
+        });
+
+        excedentesPorLocal[localExcedente] -= unidadesATransferir;
+        unidadesPendientes -= unidadesATransferir;
+      }
+
+      // SEGUNDO: Usar depósitos que NO participan en la distribución (depósitos puros)
+      for (const deposito of depositos) {
+        if (unidadesPendientes <= 0) break;
+
+        // Saltar si este depósito es una sucursal que participa en distribución
+        if (distribucionSKU[deposito.nombre] !== undefined) {
+          continue; // Ya se procesó en excedentes o necesidades
         }
 
-        // Obtener motivo específico basado en reglas aplicadas
+        const stockDisponible = stockPorLocal[deposito.nombre] || 0;
+        if (stockDisponible <= 0) continue;
+
+        const unidadesATransferir = Math.min(unidadesPendientes, stockDisponible);
+
         const motivo = obtenerMotivoTransferencia(sku, sucursal);
         const reglaAplicada = motivo.includes('CROSS-R2') ? 'CROSS-R2'
                             : motivo.includes('INTERLOCAL-R7') ? 'INTERLOCAL-R7'
@@ -924,15 +968,19 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
           color: nombreColor || color,
           origen: deposito.nombre,
           destino: sucursal,
-          unidades: unidadesDesdeDeposito,
-          motivo: motivo,
-          reglaAplicada: reglaAplicada,
+          unidades: unidadesATransferir,
+          motivo,
+          reglaAplicada,
           prioridad,
           temporada
         });
 
-        deposito.cantidadDisponible -= unidadesDesdeDeposito;
-        unidadesPendientes -= unidadesDesdeDeposito;
+        stockPorLocal[deposito.nombre] -= unidadesATransferir;
+        unidadesPendientes -= unidadesATransferir;
+      }
+
+      if (unidadesPendientes > 0) {
+        log('ADVERTENCIA', `No se pudo completar distribución de ${sku} a ${sucursal}: faltan ${unidadesPendientes} unidades`);
       }
     });
   });
