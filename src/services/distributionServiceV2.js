@@ -337,7 +337,9 @@ const detectarCurvas = (skusConsolidados) => {
  * CROSS - Regla 2: Validar curvas completas
  * Ajusta distribución para que cada local reciba curvas completas o nada
  */
-const validarCurvasCompletas = (distribucionPorSKU, curvas, sucursales) => {
+const validarCurvasCompletas = (distribucionPorSKU, curvas, sucursales, participaciones) => {
+  const unidadesRetiradas = []; // Guardar para redistribuir
+
   Object.entries(curvas).forEach(([claveCurva, curva]) => {
     const { talles, skus } = curva;
 
@@ -364,20 +366,42 @@ const validarCurvasCompletas = (distribucionPorSKU, curvas, sucursales) => {
           tallesEnSucursal.forEach(talle => {
             const sku = skus.find(s => s.includes(`_${talle}`));
             if (sku && distribucionPorSKU[sku]) {
-              const unidadesRetiradas = distribucionPorSKU[sku][suc] || 0;
-              distribucionPorSKU[sku][suc] = 0;
+              const unidades = distribucionPorSKU[sku][suc] || 0;
+              if (unidades > 0) {
+                distribucionPorSKU[sku][suc] = 0;
+                unidadesRetiradas.push({ sku, unidades, sucursalOrigen: suc });
 
-              log('CROSS-R2', `Retiradas ${unidadesRetiradas} unidades de ${sku} en ${suc} (curva rota)`, {
-                sku,
-                sucursal: suc,
-                unidades: unidadesRetiradas
-              });
+                log('CROSS-R2', `Retiradas ${unidades} unidades de ${sku} en ${suc} (curva rota)`, {
+                  sku,
+                  sucursal: suc,
+                  unidades
+                });
+              }
             }
           });
         }
       }
     });
   });
+
+  // Redistribuir unidades retiradas al local con mayor participación
+  if (unidadesRetiradas.length > 0) {
+    const localMayorParticipacion = Object.entries(participaciones)
+      .reduce((max, [suc, pct]) => pct > max.pct ? { suc, pct } : max, { suc: null, pct: 0 }).suc;
+
+    unidadesRetiradas.forEach(({ sku, unidades }) => {
+      if (!distribucionPorSKU[sku]) distribucionPorSKU[sku] = {};
+      distribucionPorSKU[sku][localMayorParticipacion] = (distribucionPorSKU[sku][localMayorParticipacion] || 0) + unidades;
+
+      log('CROSS-R2', `Redistribuidas ${unidades} unidades de ${sku} a ${localMayorParticipacion} (mayor participación)`, {
+        sku,
+        unidades,
+        destino: localMayorParticipacion
+      });
+    });
+
+    log('CROSS-R2', `Total redistribuido: ${unidadesRetiradas.length} ajustes, ${unidadesRetiradas.reduce((sum, u) => sum + u.unidades, 0)} unidades`);
+  }
 };
 
 /**
@@ -411,8 +435,8 @@ const aplicarReglasCross = (distribucionPorSKU, curvas, sucursales, participacio
   // Regla 1: Ya aplicada por Hamilton
   log('CROSS-R1', '✅ Distribución según % UTA (aplicada por Hamilton)');
 
-  // Regla 2: Validar curvas completas
-  validarCurvasCompletas(distribucionPorSKU, curvas, sucursales);
+  // Regla 2: Validar curvas completas y redistribuir
+  validarCurvasCompletas(distribucionPorSKU, curvas, sucursales, participaciones);
 
   // Regla 3: Sobrantes a local con mayor participación
   asignarSobrantesAMayorParticipacion(distribucionPorSKU, participaciones);
@@ -463,8 +487,8 @@ const optimizarMovimientos = (distribucionPorSKU) => {
 /**
  * INTERLOCAL - Regla 7: Limpiar curvas rotas existentes
  */
-const limpiarCurvasRotas = (distribucionPorSKU, curvas, sucursales) => {
-  let curvosRotasLimpiadas = 0;
+const limpiarCurvasRotas = (distribucionPorSKU, curvas, sucursales, participaciones) => {
+  const unidadesRetiradas = [];
 
   Object.entries(curvas).forEach(([claveCurva, curva]) => {
     const { talles, skus } = curva;
@@ -480,8 +504,11 @@ const limpiarCurvasRotas = (distribucionPorSKU, curvas, sucursales) => {
         tallesEnSucursal.forEach(talle => {
           const sku = skus.find(s => s.includes(`_${talle}`));
           if (sku && distribucionPorSKU[sku]) {
-            distribucionPorSKU[sku][suc] = 0;
-            curvosRotasLimpiadas++;
+            const unidades = distribucionPorSKU[sku][suc] || 0;
+            if (unidades > 0) {
+              distribucionPorSKU[sku][suc] = 0;
+              unidadesRetiradas.push({ sku, unidades, sucursalOrigen: suc });
+            }
           }
         });
 
@@ -494,7 +521,20 @@ const limpiarCurvasRotas = (distribucionPorSKU, curvas, sucursales) => {
     });
   });
 
-  log('INTERLOCAL-R7', `Limpieza completada: ${curvosRotasLimpiadas} ajustes realizados`);
+  // Redistribuir unidades retiradas
+  if (unidadesRetiradas.length > 0) {
+    const localMayorParticipacion = Object.entries(participaciones)
+      .reduce((max, [suc, pct]) => pct > max.pct ? { suc, pct } : max, { suc: null, pct: 0 }).suc;
+
+    unidadesRetiradas.forEach(({ sku, unidades }) => {
+      if (!distribucionPorSKU[sku]) distribucionPorSKU[sku] = {};
+      distribucionPorSKU[sku][localMayorParticipacion] = (distribucionPorSKU[sku][localMayorParticipacion] || 0) + unidades;
+    });
+
+    log('INTERLOCAL-R7', `Limpieza completada: ${unidadesRetiradas.length} ajustes, ${unidadesRetiradas.reduce((sum, u) => sum + u.unidades, 0)} unidades redistribuidas`);
+  } else {
+    log('INTERLOCAL-R7', `Limpieza completada: 0 ajustes realizados`);
+  }
 };
 
 /**
@@ -561,8 +601,8 @@ const aplicarReglasInterlocal = (distribucionPorSKU, curvas, sucursales, partici
   // Regla 6: Optimizar movimientos
   optimizarMovimientos(distribucionPorSKU);
 
-  // Regla 7: Limpiar curvas rotas
-  limpiarCurvasRotas(distribucionPorSKU, curvas, sucursales);
+  // Regla 7: Limpiar curvas rotas y redistribuir
+  limpiarCurvasRotas(distribucionPorSKU, curvas, sucursales, participaciones);
 
   // Regla 8: Analizar categoría + prioridad
   analizarCategoriaPrioridad(distribucionPorSKU, prioridades);
@@ -765,7 +805,10 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
     trazabilidad: [...trazabilidad],
     checkSum,
     curvas,
-    skusConsolidados
+    skusConsolidados,
+    productos,
+    participaciones,
+    sucursales
   };
 };
 
