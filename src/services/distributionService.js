@@ -417,6 +417,52 @@ const aplicarR8_UTAAcumulada = (distribucionPorSKU, participaciones) => {
 };
 
 // ============================================================================
+// CONSOLIDACIÓN DE SKUs
+// ============================================================================
+
+/**
+ * Consolida productos por SKU, sumando cantidades de todos los depósitos
+ * Esto evita distribuciones bidireccionales del mismo SKU
+ */
+const consolidarPorSKU = (productos) => {
+  const skusConsolidados = {};
+
+  productos.forEach(producto => {
+    const { sku, cantidad, deposito } = producto;
+
+    if (!skusConsolidados[sku]) {
+      skusConsolidados[sku] = {
+        ...producto, // Copiar datos base del primer registro
+        cantidadTotal: 0,
+        depositos: [] // Rastrear todos los depósitos de origen
+      };
+    }
+
+    // Acumular cantidad total
+    skusConsolidados[sku].cantidadTotal += cantidad;
+
+    // Registrar depósito de origen con su cantidad
+    skusConsolidados[sku].depositos.push({
+      nombre: deposito || 'Sin nombre',
+      coddep: producto.coddep,
+      cantidad: cantidad
+    });
+  });
+
+  console.log(`📦 Consolidación de SKUs completada:`);
+  console.log(`   📊 SKUs únicos: ${Object.keys(skusConsolidados).length}`);
+  console.log(`   📋 Total unidades: ${Object.values(skusConsolidados).reduce((sum, s) => sum + s.cantidadTotal, 0)}`);
+
+  // Mostrar ejemplo de consolidación
+  const ejemploSKU = Object.values(skusConsolidados)[0];
+  if (ejemploSKU) {
+    console.log(`   🔍 Ejemplo: ${ejemploSKU.sku} = ${ejemploSKU.cantidadTotal} unidades desde ${ejemploSKU.depositos.length} depósito(s)`);
+  }
+
+  return skusConsolidados;
+};
+
+// ============================================================================
 // MOTOR PRINCIPAL: Distribución Automática
 // ============================================================================
 
@@ -455,18 +501,23 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
     [...new Set(productos.map(p => `${p.tipologia} (Prioridad: ${prioridades[p.tipologia] || 999})`))].slice(0, 10)
   );
 
-  // Paso 2: CAPA 1 - Aplicar Hamilton a cada SKU
+  // Paso 1.6: ⭐ CONSOLIDAR por SKU (agrupar cantidades de todos los depósitos)
+  const skusConsolidados = consolidarPorSKU(productos);
+
+  // Paso 2: CAPA 1 - Aplicar Hamilton a cada SKU CONSOLIDADO (UNA SOLA VEZ)
   const distribucionPorSKU = {};
   const distribucionDetallada = [];
 
-  productos.forEach(producto => {
-    const { sku, cantidad, tipologia, color, medida, nombreColor, origen, temporada, deposito } = producto;
+  Object.values(skusConsolidados).forEach(skuData => {
+    const { sku, cantidadTotal, tipologia, color, medida, nombreColor, origen, temporada, depositos } = skuData;
 
-    // Aplicar Hamilton
-    const resultado = algoritmoHamilton(cantidad, participaciones);
+    // ⭐ Aplicar Hamilton UNA SOLA VEZ con la cantidad total consolidada
+    const resultado = algoritmoHamilton(cantidadTotal, participaciones);
     distribucionPorSKU[sku] = resultado.distribucion;
 
-    // Registrar detalle
+    // Registrar detalle con lista de depósitos de origen
+    const depositosOrigen = depositos.map(d => d.nombre).join(', ');
+
     Object.entries(resultado.distribucion).forEach(([sucursal, unidades]) => {
       if (unidades > 0) {
         distribucionDetallada.push({
@@ -479,7 +530,8 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
           unidades,
           cuotaExacta: resultado.cuotas[sucursal].toFixed(2),
           residuo: resultado.residuos[sucursal].toFixed(4),
-          deposito,
+          depositos: depositos, // ⭐ Guardar info de todos los depósitos de origen
+          depositosOrigen: depositosOrigen, // String para mostrar en UI
           origen,
           temporada,
           prioridad: prioridades[tipologia] || 999
@@ -531,23 +583,63 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
     esValido: totalOriginal === totalUnidadesDistribuidas
   };
 
-  // Paso 6: Generar transferencias con depósito de origen real
+  // Paso 6: Generar transferencias optimizadas desde depósitos a sucursales
   const transferencias = [];
-  distribucionDetallada.forEach(item => {
-    if (item.unidades > 0) {
-      transferencias.push({
-        sku: item.sku,
-        talle: item.medida,
-        color: item.nombreColor || item.color,
-        origen: item.deposito || 'Depósito sin nombre',
-        destino: item.sucursal,
-        unidades: item.unidades,
-        motivo: 'Distribución inicial Hamilton',
-        prioridad: item.prioridad,
-        temporada: item.temporada
-      });
-    }
+
+  // Agrupar distribución por SKU para generar transferencias inteligentes
+  Object.values(skusConsolidados).forEach(skuData => {
+    const { sku, depositos, tipologia, color, nombreColor, medida, temporada } = skuData;
+    const prioridad = prioridades[tipologia] || 999;
+
+    // Obtener distribución calculada por Hamilton para este SKU
+    const distribucionSKU = distribucionPorSKU[sku] || {};
+
+    // Crear lista de depósitos disponibles con sus cantidades (copia para no modificar original)
+    const depositosDisponibles = depositos.map(d => ({
+      nombre: d.nombre,
+      cantidadDisponible: d.cantidad
+    }));
+
+    // Para cada sucursal que necesita unidades de este SKU
+    Object.entries(distribucionSKU).forEach(([sucursal, unidadesNecesarias]) => {
+      if (unidadesNecesarias <= 0) return;
+
+      let unidadesPendientes = unidadesNecesarias;
+
+      // Asignar unidades desde los depósitos disponibles (FIFO)
+      for (const deposito of depositosDisponibles) {
+        if (unidadesPendientes <= 0) break;
+        if (deposito.cantidadDisponible <= 0) continue;
+
+        // Calcular cuántas unidades tomar de este depósito
+        const unidadesDesdeDeposito = Math.min(unidadesPendientes, deposito.cantidadDisponible);
+
+        // Generar transferencia
+        transferencias.push({
+          sku: sku,
+          talle: medida,
+          color: nombreColor || color,
+          origen: deposito.nombre,
+          destino: sucursal,
+          unidades: unidadesDesdeDeposito,
+          motivo: 'Distribución Hamilton consolidada',
+          prioridad: prioridad,
+          temporada: temporada
+        });
+
+        // Actualizar cantidades
+        deposito.cantidadDisponible -= unidadesDesdeDeposito;
+        unidadesPendientes -= unidadesDesdeDeposito;
+      }
+
+      // Verificación: Si quedan unidades pendientes, hay un error de lógica
+      if (unidadesPendientes > 0) {
+        console.warn(`⚠️ SKU ${sku}: No hay suficiente stock en depósitos para cubrir ${unidadesPendientes} unidades a ${sucursal}`);
+      }
+    });
   });
+
+  console.log(`📦 Transferencias generadas: ${transferencias.length} movimientos`);
 
   return {
     distribucionDetallada,
@@ -573,7 +665,7 @@ export const exportarDistribucionCompleta = (resultado) => {
 
   // HOJA 1: Distribución Final
   const hoja1Data = [
-    ['SKU', 'TIPOLOGIA', 'Color', 'Medida', 'Depósito Origen', 'Sucursal Destino', 'Unidades', 'Cuota Exacta', 'Residuo']
+    ['SKU', 'TIPOLOGIA', 'Color', 'Medida', 'Depósitos Origen', 'Sucursal Destino', 'Unidades', 'Cuota Exacta', 'Residuo']
   ];
 
   resultado.distribucionDetallada.forEach(item => {
@@ -582,7 +674,7 @@ export const exportarDistribucionCompleta = (resultado) => {
       item.tipologia,
       item.nombreColor || item.color,
       item.medida,
-      item.deposito || 'Sin depósito',
+      item.depositosOrigen || 'Sin depósito',
       item.sucursal,
       item.unidades,
       item.cuotaExacta,

@@ -412,7 +412,7 @@ const Distribucion = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.tipologia}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.nombreColor || item.color}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.medida}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.deposito || '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{item.depositosOrigen || '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.sucursal}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{item.unidades}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.cuotaExacta}</td>
