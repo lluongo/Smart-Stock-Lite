@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { Upload, CheckCircle, AlertCircle, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, FileText, Trash2, ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
 import Papa from 'papaparse';
+import { validarArchivo } from '../services/fileValidation';
 
 const CargarDatos = () => {
   const navigate = useNavigate();
@@ -26,6 +27,12 @@ const CargarDatos = () => {
     prioridad: null,
   });
 
+  const [validationMessages, setValidationMessages] = useState({
+    stock: null,
+    participacion: null,
+    prioridad: null,
+  });
+
   const [dragActive, setDragActive] = useState({
     stock: false,
     participacion: false,
@@ -36,9 +43,9 @@ const CargarDatos = () => {
   const rowsPerPage = 10;
 
   const fileDescriptions = {
-    stock: 'Contiene el stock por tienda',
-    participacion: 'Contiene el porcentaje de venta por tienda',
-    prioridad: 'Define la prioridad de distribución por producto',
+    stock: 'Stock por tienda (SKU, Talle, Color, Locales...)',
+    participacion: 'Porcentaje de venta por tienda (Local, % VTA)',
+    prioridad: 'Prioridad de distribución (SKU, Prioridad, Capacidad, Categoria)',
   };
 
   const handleFileUpload = (type, file) => {
@@ -49,26 +56,46 @@ const CargarDatos = () => {
         complete: (result) => {
           const data = result.data;
 
-          // Para stock guardamos todos los datos para paginación
-          // Para participacion y prioridad también guardamos todo
-          setPreviews({
-            ...previews,
-            [type]: data,
-          });
+          // Filtrar filas vacías
+          const dataFiltrada = data.filter(row =>
+            row && row.length > 0 && row.some(cell => cell && cell.trim() !== '')
+          );
 
-          // Validación simple
-          const isValid = data.length > 1 && data[0].length > 0;
+          // Validación específica según el tipo de archivo
+          const validacion = validarArchivo(type, dataFiltrada);
+
+          // Actualizar estado de validación
           setValidations({
             ...validations,
-            [type]: isValid ? 'valid' : 'invalid',
+            [type]: validacion.valido ? 'valid' : 'invalid',
           });
 
-          // Guardar datos en el contexto
-          if (type === 'stock') setStockData(data);
-          if (type === 'participacion') setParticipacionData(data);
-          if (type === 'prioridad') setPrioridadData(data);
+          setValidationMessages({
+            ...validationMessages,
+            [type]: validacion,
+          });
+
+          if (validacion.valido) {
+            // Solo guardar datos si la validación es exitosa
+            setPreviews({
+              ...previews,
+              [type]: dataFiltrada,
+            });
+
+            // Guardar datos en el contexto
+            if (type === 'stock') setStockData(dataFiltrada);
+            if (type === 'participacion') setParticipacionData(dataFiltrada);
+            if (type === 'prioridad') setPrioridadData(dataFiltrada);
+          } else {
+            // Si no es válido, limpiar preview
+            setPreviews({
+              ...previews,
+              [type]: null,
+            });
+          }
         },
         header: false,
+        skipEmptyLines: true,
       });
     }
   };
@@ -77,7 +104,13 @@ const CargarDatos = () => {
     setFiles({ ...files, [type]: null });
     setPreviews({ ...previews, [type]: null });
     setValidations({ ...validations, [type]: null });
+    setValidationMessages({ ...validationMessages, [type]: null });
     setCurrentPage(1);
+
+    // Limpiar datos del contexto
+    if (type === 'stock') setStockData([]);
+    if (type === 'participacion') setParticipacionData([]);
+    if (type === 'prioridad') setPrioridadData([]);
   };
 
   const handleDrag = (e, type) => {
@@ -108,6 +141,7 @@ const CargarDatos = () => {
   };
 
   const allFilesUploaded = Object.values(files).every((f) => f !== null);
+  const allFilesValid = Object.values(validations).every((v) => v === 'valid');
 
   // Función para obtener datos paginados solo para stock
   const getPaginatedData = (data, type) => {
@@ -133,7 +167,7 @@ const CargarDatos = () => {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Cargar Datos</h1>
         <p className="text-gray-500 mt-1">
-          Sube los archivos CSV o Excel para analizar tu inventario
+          Sube los archivos CSV con el formato específico para cada tipo
         </p>
       </div>
 
@@ -147,7 +181,7 @@ const CargarDatos = () => {
                   <h3 className="text-lg font-bold text-gray-900 capitalize">
                     {type}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     {fileDescriptions[type]}
                   </p>
                 </div>
@@ -156,7 +190,7 @@ const CargarDatos = () => {
                     {validations[type] === 'valid' ? (
                       <CheckCircle className="w-6 h-6 text-green-500" />
                     ) : (
-                      <AlertCircle className="w-6 h-6 text-yellow-500" />
+                      <XCircle className="w-6 h-6 text-red-500" />
                     )}
                   </div>
                 )}
@@ -210,24 +244,39 @@ const CargarDatos = () => {
                     </button>
                   </div>
 
-                  {validations[type] === 'valid' && (
+                  {validations[type] === 'valid' && validationMessages[type] && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-sm text-green-700 font-medium">
-                        Archivo validado correctamente
-                        {previews[type] && (
-                          <span className="block text-xs text-green-600 mt-1">
-                            {previews[type].length} filas cargadas
-                          </span>
-                        )}
-                      </p>
+                      <div className="flex items-start space-x-2">
+                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-green-700 font-medium">
+                            Archivo validado correctamente
+                          </p>
+                          {validationMessages[type].mensaje && (
+                            <p className="text-xs text-green-600 mt-1">
+                              {validationMessages[type].mensaje}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
 
-                  {validations[type] === 'invalid' && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <p className="text-sm text-yellow-700 font-medium">
-                        Revisar formato del archivo
-                      </p>
+                  {validations[type] === 'invalid' && validationMessages[type] && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-start space-x-2">
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-red-700 font-medium">
+                            Error en formato del archivo
+                          </p>
+                          {validationMessages[type].error && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {validationMessages[type].error}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -250,7 +299,7 @@ const CargarDatos = () => {
                   <div key={type}>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-medium text-gray-700 capitalize">
-                        {type} {type === 'stock' && `(${data.length} productos)`}
+                        {type} {type === 'stock' && `(${data.length - 1} filas)`}
                       </h3>
                       {type === 'stock' && getTotalPages(data, type) > 1 && (
                         <div className="flex items-center space-x-2">
@@ -278,7 +327,7 @@ const CargarDatos = () => {
                       <table className="min-w-full divide-y divide-gray-200">
                         <tbody className="bg-white divide-y divide-gray-200">
                           {getPaginatedData(data, type).map((row, i) => (
-                            <tr key={i} className="hover:bg-gray-50">
+                            <tr key={i} className={`hover:bg-gray-50 ${i === 0 ? 'bg-gray-100 font-medium' : ''}`}>
                               {row.map((cell, j) => (
                                 <td
                                   key={j}
@@ -301,25 +350,38 @@ const CargarDatos = () => {
 
       {/* Instructions */}
       <div className="card bg-blue-50 border-blue-200">
-        <h3 className="text-lg font-bold text-blue-900 mb-2">
-          Instrucciones
+        <h3 className="text-lg font-bold text-blue-900 mb-3">
+          Formato de Archivos Requeridos
         </h3>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Los archivos deben estar en formato CSV o Excel</li>
-          <li>• Puedes arrastrar y soltar o hacer click para seleccionar</li>
-          <li>• La tabla de <strong>stock</strong> está paginada (10 filas por página)</li>
-          <li>• Las tablas de <strong>participación</strong> y <strong>prioridad</strong> muestran todos los datos</li>
-          <li>• Sube los tres archivos para continuar con el análisis</li>
-        </ul>
+        <div className="space-y-3 text-sm text-blue-700">
+          <div>
+            <p className="font-medium mb-1">📦 Stock:</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">SKU, Talle, Color, Local1, Local2, ...</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: P001, M, Azul, 5, 8, 3</p>
+          </div>
+          <div>
+            <p className="font-medium mb-1">📊 Participación:</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">Local, % VTA</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: Local Centro, 35</p>
+          </div>
+          <div>
+            <p className="font-medium mb-1">⭐ Prioridad:</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">SKU, Prioridad, Capacidad, Categoria</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: P001, Alta, 100, Verano</p>
+          </div>
+          <div className="pt-2 border-t border-blue-300">
+            <p className="text-xs">💡 Archivos de ejemplo disponibles en <code className="bg-blue-100 px-1 rounded">public/ejemplos/</code></p>
+          </div>
+        </div>
       </div>
 
       {/* Confirm button */}
       <div className="flex justify-end">
         <button
           onClick={handleConfirm}
-          disabled={!allFilesUploaded}
+          disabled={!allFilesUploaded || !allFilesValid}
           className={`btn-primary ${
-            !allFilesUploaded ? 'opacity-50 cursor-not-allowed' : ''
+            !allFilesUploaded || !allFilesValid ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
           Confirmar Carga
