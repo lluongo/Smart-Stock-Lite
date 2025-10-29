@@ -10,7 +10,9 @@ import {
   Store,
   TrendingUp,
   FileText,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import {
   generarDistribucionAutomatica,
@@ -26,6 +28,16 @@ const Distribucion = () => {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
   const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, transferencias, resumen, log
+
+  // Estados de paginación
+  const [paginaDistribucion, setPaginaDistribucion] = useState(1);
+  const [registrosPorPaginaDistribucion, setRegistrosPorPaginaDistribucion] = useState(10);
+
+  const [paginaTransferencias, setPaginaTransferencias] = useState(1);
+  const [registrosPorPaginaTransferencias, setRegistrosPorPaginaTransferencias] = useState(10);
+
+  const [paginaLog, setPaginaLog] = useState(1);
+  const [registrosPorPaginaLog, setRegistrosPorPaginaLog] = useState(10);
 
   // Calcular distribución al cargar datos
   useEffect(() => {
@@ -78,6 +90,28 @@ const Distribucion = () => {
       return;
     }
     exportarDistribucionCSV(resultado.distribucionDetallada);
+  };
+
+  // Funciones helper para paginación
+  const getPaginatedData = (data, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  };
+
+  const getTotalPages = (dataLength, itemsPerPage) => {
+    return Math.ceil(dataLength / itemsPerPage);
+  };
+
+  const handlePageChange = (setPage, newPage, totalPages) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  const handleItemsPerPageChange = (setPage, setItemsPerPage, value) => {
+    setItemsPerPage(parseInt(value));
+    setPage(1); // Reset to first page when changing items per page
   };
 
   // Si no hay datos cargados
@@ -311,70 +345,164 @@ const Distribucion = () => {
 
           <div className="p-6">
             {/* TAB: Distribución Final */}
-            {tabActiva === 'distribucion' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipología</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {resultado.distribucionDetallada.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.sku}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.tipologia}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.nombreColor || item.color}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.medida}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.sucursal}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{item.unidades}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.cuotaExacta}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {tabActiva === 'distribucion' && (() => {
+              const totalPagesDistribucion = getTotalPages(resultado.distribucionDetallada.length, registrosPorPaginaDistribucion);
+              const paginatedDataDistribucion = getPaginatedData(resultado.distribucionDetallada, paginaDistribucion, registrosPorPaginaDistribucion);
+
+              return (
+                <div>
+                  {/* Controles superiores */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm text-gray-600">Registros por página:</label>
+                      <select
+                        value={registrosPorPaginaDistribucion}
+                        onChange={(e) => handleItemsPerPageChange(setPaginaDistribucion, setRegistrosPorPaginaDistribucion, e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      >
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                      </select>
+                      <span className="text-sm text-gray-600">
+                        Total: {resultado.distribucionDetallada.length} registros
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handlePageChange(setPaginaDistribucion, paginaDistribucion - 1, totalPagesDistribucion)}
+                        disabled={paginaDistribucion === 1}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Página {paginaDistribucion} de {totalPagesDistribucion}
+                      </span>
+                      <button
+                        onClick={() => handlePageChange(setPaginaDistribucion, paginaDistribucion + 1, totalPagesDistribucion)}
+                        disabled={paginaDistribucion === totalPagesDistribucion}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabla */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipología</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedDataDistribucion.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.sku}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.tipologia}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.nombreColor || item.color}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.medida}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.sucursal}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{item.unidades}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.cuotaExacta}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* TAB: Transferencias */}
-            {tabActiva === 'transferencias' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Origen</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destino</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {resultado.transferencias.map((t, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.sku}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.talle}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.color}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.origen}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.destino}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{t.unidades}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.motivo}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.prioridad}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {tabActiva === 'transferencias' && (() => {
+              const totalPagesTransferencias = getTotalPages(resultado.transferencias.length, registrosPorPaginaTransferencias);
+              const paginatedDataTransferencias = getPaginatedData(resultado.transferencias, paginaTransferencias, registrosPorPaginaTransferencias);
+
+              return (
+                <div>
+                  {/* Controles superiores */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm text-gray-600">Registros por página:</label>
+                      <select
+                        value={registrosPorPaginaTransferencias}
+                        onChange={(e) => handleItemsPerPageChange(setPaginaTransferencias, setRegistrosPorPaginaTransferencias, e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      >
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                      </select>
+                      <span className="text-sm text-gray-600">
+                        Total: {resultado.transferencias.length} registros
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handlePageChange(setPaginaTransferencias, paginaTransferencias - 1, totalPagesTransferencias)}
+                        disabled={paginaTransferencias === 1}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Página {paginaTransferencias} de {totalPagesTransferencias}
+                      </span>
+                      <button
+                        onClick={() => handlePageChange(setPaginaTransferencias, paginaTransferencias + 1, totalPagesTransferencias)}
+                        disabled={paginaTransferencias === totalPagesTransferencias}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabla */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Origen</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destino</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedDataTransferencias.map((t, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.sku}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.talle}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.color}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.origen}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.destino}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{t.unidades}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.motivo}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.prioridad}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* TAB: Resumen Sucursales */}
             {tabActiva === 'resumen' && (
@@ -414,36 +542,83 @@ const Distribucion = () => {
             )}
 
             {/* TAB: Log Trazabilidad */}
-            {tabActiva === 'log' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Regla</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Temporada</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {resultado.trazabilidad.map((log, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">{log.regla}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sku || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sucursal || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.producto || log.tipologia || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{log.motivo}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.prioridad || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.temporada || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {tabActiva === 'log' && (() => {
+              const totalPagesLog = getTotalPages(resultado.trazabilidad.length, registrosPorPaginaLog);
+              const paginatedDataLog = getPaginatedData(resultado.trazabilidad, paginaLog, registrosPorPaginaLog);
+
+              return (
+                <div>
+                  {/* Controles superiores */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm text-gray-600">Registros por página:</label>
+                      <select
+                        value={registrosPorPaginaLog}
+                        onChange={(e) => handleItemsPerPageChange(setPaginaLog, setRegistrosPorPaginaLog, e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      >
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                      </select>
+                      <span className="text-sm text-gray-600">
+                        Total: {resultado.trazabilidad.length} registros
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handlePageChange(setPaginaLog, paginaLog - 1, totalPagesLog)}
+                        disabled={paginaLog === 1}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Página {paginaLog} de {totalPagesLog}
+                      </span>
+                      <button
+                        onClick={() => handlePageChange(setPaginaLog, paginaLog + 1, totalPagesLog)}
+                        disabled={paginaLog === totalPagesLog}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabla */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Regla</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Temporada</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedDataLog.map((log, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">{log.regla}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sku || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sucursal || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.producto || log.tipologia || '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{log.motivo}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.prioridad || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.temporada || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
