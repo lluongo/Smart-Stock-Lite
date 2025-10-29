@@ -366,6 +366,75 @@ const detectarCurvas = (skusConsolidados) => {
 };
 
 // ============================================================================
+// ANÁLISIS DE CURVAS Y REGISTRO DE MOTIVOS
+// ============================================================================
+
+/**
+ * Analiza las curvas por sucursal y registra motivos específicos
+ * para cada transferencia según el estado de la curva
+ */
+const analizarYRegistrarMotivosCurvas = (distribucionPorSKU, curvas, sucursales) => {
+  log('ANALISIS_CURVAS', 'Analizando estado de curvas por sucursal');
+
+  Object.entries(curvas).forEach(([claveCurva, curva]) => {
+    const { talles, skus, tipologia, color } = curva;
+    const nombreCurva = `${tipologia}_${color}`;
+
+    sucursales.forEach(suc => {
+      // Contar talles presentes en esta sucursal
+      const tallesPresentes = [];
+      const tallesAusentes = [];
+
+      talles.forEach(talle => {
+        const sku = skus.find(s => s.includes(`_${talle}`));
+        const tieneUnidades = sku && distribucionPorSKU[sku] && distribucionPorSKU[sku][suc] > 0;
+
+        if (tieneUnidades) {
+          tallesPresentes.push(talle);
+        } else {
+          tallesAusentes.push(talle);
+        }
+      });
+
+      // Calcular porcentaje de curva
+      const porcentajeCurva = (tallesPresentes.length / talles.length) * 100;
+
+      // Registrar motivo para cada SKU de esta curva en esta sucursal
+      tallesPresentes.forEach(talle => {
+        const sku = skus.find(s => s.includes(`_${talle}`));
+        if (!sku) return;
+
+        let motivo;
+        if (porcentajeCurva === 100) {
+          motivo = `Curva completa (${talles.length} talles) - ${nombreCurva}`;
+        } else if (porcentajeCurva >= 70) {
+          motivo = `Curva incompleta ${porcentajeCurva.toFixed(0)}% (${tallesPresentes.length}/${talles.length} talles) - ${nombreCurva}`;
+        } else if (porcentajeCurva >= 50) {
+          motivo = `Curva fragmentada ${porcentajeCurva.toFixed(0)}% (${tallesPresentes.length}/${talles.length} talles) - ${nombreCurva}`;
+        } else {
+          motivo = `Talles sueltos ${porcentajeCurva.toFixed(0)}% (${tallesPresentes.length}/${talles.length} talles) - ${nombreCurva}`;
+        }
+
+        registrarMotivoTransferencia(sku, suc, motivo);
+      });
+
+      // Log solo para curvas con presencia
+      if (tallesPresentes.length > 0) {
+        log('ANALISIS_CURVAS', `${suc}: ${nombreCurva} = ${porcentajeCurva.toFixed(0)}% (${tallesPresentes.length}/${talles.length} talles)`, {
+          sucursal: suc,
+          curva: nombreCurva,
+          porcentaje: porcentajeCurva,
+          presentes: tallesPresentes.length,
+          total: talles.length
+        });
+      }
+    });
+  });
+
+  log('ANALISIS_CURVAS', 'Análisis de curvas completado');
+};
+
+// ============================================================================
 // REGLAS CROSS (1-3)
 // ============================================================================
 
@@ -731,6 +800,9 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   });
 
   log('HAMILTON', `Distribución base calculada: ${distribucionDetallada.length} asignaciones`);
+
+  // PASO 5.5: Analizar curvas y registrar motivos ANTES de aplicar reglas
+  analizarYRegistrarMotivosCurvas(distribucionPorSKU, curvas, sucursales);
 
   // PASO 6: Aplicar REGLAS CROSS (1-3)
   aplicarReglasCross(distribucionPorSKU, curvas, sucursales, participaciones);
