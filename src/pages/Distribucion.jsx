@@ -9,7 +9,6 @@ import {
   Package,
   Store,
   TrendingUp,
-  FileText,
   Activity,
   ChevronLeft,
   ChevronRight
@@ -27,7 +26,7 @@ const Distribucion = () => {
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
-  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, transferencias, resumen, log
+  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, transferencias, resumen
 
   // Estados de paginación
   const [paginaDistribucion, setPaginaDistribucion] = useState(1);
@@ -35,9 +34,6 @@ const Distribucion = () => {
 
   const [paginaTransferencias, setPaginaTransferencias] = useState(1);
   const [registrosPorPaginaTransferencias, setRegistrosPorPaginaTransferencias] = useState(10);
-
-  const [paginaLog, setPaginaLog] = useState(1);
-  const [registrosPorPaginaLog, setRegistrosPorPaginaLog] = useState(10);
 
   // Calcular distribución al cargar datos
   useEffect(() => {
@@ -329,17 +325,6 @@ const Distribucion = () => {
                 <Store className="w-4 h-4 inline mr-2" />
                 Resumen Sucursales
               </button>
-              <button
-                onClick={() => setTabActiva('log')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  tabActiva === 'log'
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <FileText className="w-4 h-4 inline mr-2" />
-                Log Trazabilidad ({resultado.trazabilidad.length})
-              </button>
             </nav>
           </div>
 
@@ -543,84 +528,6 @@ const Distribucion = () => {
               </div>
             )}
 
-            {/* TAB: Log Trazabilidad */}
-            {tabActiva === 'log' && (() => {
-              const totalPagesLog = getTotalPages(resultado.trazabilidad.length, registrosPorPaginaLog);
-              const paginatedDataLog = getPaginatedData(resultado.trazabilidad, paginaLog, registrosPorPaginaLog);
-
-              return (
-                <div>
-                  {/* Controles superiores */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm text-gray-600">Registros por página:</label>
-                      <select
-                        value={registrosPorPaginaLog}
-                        onChange={(e) => handleItemsPerPageChange(setPaginaLog, setRegistrosPorPaginaLog, e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm"
-                      >
-                        <option value="5">5</option>
-                        <option value="10">10</option>
-                        <option value="15">15</option>
-                        <option value="20">20</option>
-                      </select>
-                      <span className="text-sm text-gray-600">
-                        Total: {resultado.trazabilidad.length} registros
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handlePageChange(setPaginaLog, paginaLog - 1, totalPagesLog)}
-                        disabled={paginaLog === 1}
-                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Página {paginaLog} de {totalPagesLog}
-                      </span>
-                      <button
-                        onClick={() => handlePageChange(setPaginaLog, paginaLog + 1, totalPagesLog)}
-                        disabled={paginaLog === totalPagesLog}
-                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Tabla */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Regla</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Temporada</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedDataLog.map((log, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">{log.regla}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sku || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.sucursal || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.producto || log.tipologia || '-'}</td>
-                            <td className="px-6 py-4 text-sm text-gray-700">{log.motivo}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.prioridad || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.temporada || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         </div>
       )}
