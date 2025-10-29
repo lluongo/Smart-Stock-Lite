@@ -331,8 +331,8 @@ const Distribucion = () => {
           <div className="p-6">
             {/* TAB: Distribución Final */}
             {tabActiva === 'distribucion' && (() => {
-              const totalPagesDistribucion = getTotalPages(resultado.distribucionDetallada.length, registrosPorPaginaDistribucion);
-              const paginatedDataDistribucion = getPaginatedData(resultado.distribucionDetallada, paginaDistribucion, registrosPorPaginaDistribucion);
+              const totalPagesDistribucion = getTotalPages(resultado.transferencias.length, registrosPorPaginaDistribucion);
+              const paginatedDataDistribucion = getPaginatedData(resultado.transferencias, paginaDistribucion, registrosPorPaginaDistribucion);
 
               return (
                 <div>
@@ -351,7 +351,7 @@ const Distribucion = () => {
                         <option value="20">20</option>
                       </select>
                       <span className="text-sm text-gray-600">
-                        Total: {resultado.distribucionDetallada.length} registros
+                        Total: {resultado.transferencias.length} registros
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -381,26 +381,26 @@ const Distribucion = () => {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipología</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Depósito Origen</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal Destino</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Origen</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destino</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedDataDistribucion.map((item, idx) => (
+                        {paginatedDataDistribucion.map((t, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.sku}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.tipologia}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.nombreColor || item.color}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.medida}</td>
-                            <td className="px-6 py-4 text-sm text-gray-700">{item.depositosOrigen || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.sucursal}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{item.unidades}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.cuotaExacta}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.sku}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.talle}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.color}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.origen}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.destino}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{t.unidades}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.motivo}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{t.prioridad}</td>
                           </tr>
                         ))}
                       </tbody>
