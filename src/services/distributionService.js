@@ -508,12 +508,17 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   const distribucionPorSKU = {};
   const distribucionDetallada = [];
 
-  Object.values(skusConsolidados).forEach(skuData => {
+  Object.values(skusConsolidados).forEach((skuData, index) => {
     const { sku, cantidadTotal, tipologia, color, medida, nombreColor, origen, temporada, depositos } = skuData;
 
     // ⭐ Aplicar Hamilton UNA SOLA VEZ con la cantidad total consolidada
     const resultado = algoritmoHamilton(cantidadTotal, participaciones);
     distribucionPorSKU[sku] = resultado.distribucion;
+
+    // Debug para los primeros 3 SKUs
+    if (index < 3) {
+      console.log(`🔍 SKU ${index + 1}: ${sku}, Cantidad: ${cantidadTotal}, Resultado:`, resultado.distribucion);
+    }
 
     // Registrar detalle con lista de depósitos de origen
     const depositosOrigen = depositos.map(d => d.nombre).join(', ');
@@ -550,7 +555,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   aplicarR7_CategoriaPrioridad(productos, prioridades);
   aplicarR8_UTAAcumulada(distribucionPorSKU, participaciones);
 
-  // Paso 4: Generar resumen por sucursal
+  // Paso 4: Generar resumen por sucursal usando distribucionDetallada
   const resumenSucursales = {};
   sucursales.forEach(suc => {
     resumenSucursales[suc] = {
@@ -561,20 +566,25 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   });
 
   let totalUnidadesDistribuidas = 0;
-  Object.values(distribucionPorSKU).forEach(dist => {
-    Object.entries(dist).forEach(([suc, unidades]) => {
-      // Inicializar sucursal si no existe (por si acaso)
-      if (!resumenSucursales[suc]) {
-        resumenSucursales[suc] = {
-          totalUnidades: 0,
-          participacionEsperada: participaciones[suc] || 0,
-          participacionReal: 0
-        };
-      }
-      resumenSucursales[suc].totalUnidades += unidades;
-      totalUnidadesDistribuidas += unidades;
-    });
+
+  // Calcular desde distribucionDetallada (más confiable)
+  distribucionDetallada.forEach(item => {
+    const suc = item.sucursal;
+    const unidades = item.unidades;
+
+    if (!resumenSucursales[suc]) {
+      resumenSucursales[suc] = {
+        totalUnidades: 0,
+        participacionEsperada: participaciones[suc] || 0,
+        participacionReal: 0
+      };
+    }
+
+    resumenSucursales[suc].totalUnidades += unidades;
+    totalUnidadesDistribuidas += unidades;
   });
+
+  console.log(`📊 Total unidades distribuidas calculado: ${totalUnidadesDistribuidas}`);
 
   // Calcular participación real
   Object.keys(resumenSucursales).forEach(suc => {
@@ -596,9 +606,10 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
 
   // Paso 6: Generar transferencias optimizadas desde depósitos a sucursales
   const transferencias = [];
+  let transferenciasDebug = 0;
 
   // Agrupar distribución por SKU para generar transferencias inteligentes
-  Object.values(skusConsolidados).forEach(skuData => {
+  Object.values(skusConsolidados).forEach((skuData, skuIndex) => {
     const { sku, depositos, tipologia, color, nombreColor, medida, temporada } = skuData;
     const prioridad = prioridades[tipologia] || 999;
 
@@ -610,6 +621,8 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
       nombre: d.nombre,
       cantidadDisponible: d.cantidad
     }));
+
+    let transferenciasEsteSKU = 0;
 
     // Para cada sucursal que necesita unidades de este SKU
     Object.entries(distribucionSKU).forEach(([sucursal, unidadesNecesarias]) => {
@@ -638,6 +651,8 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
           temporada: temporada
         });
 
+        transferenciasEsteSKU++;
+
         // Actualizar cantidades
         deposito.cantidadDisponible -= unidadesDesdeDeposito;
         unidadesPendientes -= unidadesDesdeDeposito;
@@ -648,9 +663,14 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
         console.warn(`⚠️ SKU ${sku}: No hay suficiente stock en depósitos para cubrir ${unidadesPendientes} unidades a ${sucursal}`);
       }
     });
+
+    // Debug primeros 3 SKUs
+    if (skuIndex < 3) {
+      console.log(`📦 SKU ${skuIndex + 1} (${sku}): ${transferenciasEsteSKU} transferencias`);
+    }
   });
 
-  console.log(`📦 Transferencias generadas: ${transferencias.length} movimientos`);
+  console.log(`📦 Transferencias generadas: ${transferencias.length} movimientos totales para ${Object.keys(skusConsolidados).length} SKUs`);
 
   return {
     distribucionDetallada,
