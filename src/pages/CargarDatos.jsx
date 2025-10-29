@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { Upload, CheckCircle, AlertCircle, FileText, Trash2 } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Papa from 'papaparse';
 
 const CargarDatos = () => {
@@ -32,6 +32,9 @@ const CargarDatos = () => {
     prioridad: false,
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+
   const fileDescriptions = {
     stock: 'Contiene el stock por tienda',
     participacion: 'Contiene el porcentaje de venta por tienda',
@@ -45,9 +48,12 @@ const CargarDatos = () => {
       Papa.parse(file, {
         complete: (result) => {
           const data = result.data;
+
+          // Para stock guardamos todos los datos para paginación
+          // Para participacion y prioridad también guardamos todo
           setPreviews({
             ...previews,
-            [type]: data.slice(0, 5),
+            [type]: data,
           });
 
           // Validación simple
@@ -71,6 +77,7 @@ const CargarDatos = () => {
     setFiles({ ...files, [type]: null });
     setPreviews({ ...previews, [type]: null });
     setValidations({ ...validations, [type]: null });
+    setCurrentPage(1);
   };
 
   const handleDrag = (e, type) => {
@@ -101,6 +108,24 @@ const CargarDatos = () => {
   };
 
   const allFilesUploaded = Object.values(files).every((f) => f !== null);
+
+  // Función para obtener datos paginados solo para stock
+  const getPaginatedData = (data, type) => {
+    if (type === 'stock') {
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const endIndex = startIndex + rowsPerPage;
+      return data.slice(startIndex, endIndex);
+    }
+    return data; // Para participacion y prioridad retornamos todos los datos
+  };
+
+  // Calcular total de páginas para stock
+  const getTotalPages = (data, type) => {
+    if (type === 'stock') {
+      return Math.ceil(data.length / rowsPerPage);
+    }
+    return 1;
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -189,6 +214,11 @@ const CargarDatos = () => {
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <p className="text-sm text-green-700 font-medium">
                         Archivo validado correctamente
+                        {previews[type] && (
+                          <span className="block text-xs text-green-600 mt-1">
+                            {previews[type].length} filas cargadas
+                          </span>
+                        )}
                       </p>
                     </div>
                   )}
@@ -213,30 +243,55 @@ const CargarDatos = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-4">
             Previsualización de Datos
           </h2>
-          <div className="overflow-x-auto">
+          <div className="space-y-6">
             {Object.entries(previews).map(
               ([type, data]) =>
                 data && (
-                  <div key={type} className="mb-6 last:mb-0">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2 capitalize">
-                      {type}
-                    </h3>
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {data.map((row, i) => (
-                          <tr key={i}>
-                            {row.map((cell, j) => (
-                              <td
-                                key={j}
-                                className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap"
-                              >
-                                {cell}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div key={type}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-medium text-gray-700 capitalize">
+                        {type} {type === 'stock' && `(${data.length} productos)`}
+                      </h3>
+                      {type === 'stock' && getTotalPages(data, type) > 1 && (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ChevronLeft className="w-5 h-5" />
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            Página {currentPage} de {getTotalPages(data, type)}
+                          </span>
+                          <button
+                            onClick={() => setCurrentPage(Math.min(getTotalPages(data, type), currentPage + 1))}
+                            disabled={currentPage === getTotalPages(data, type)}
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {getPaginatedData(data, type).map((row, i) => (
+                            <tr key={i} className="hover:bg-gray-50">
+                              {row.map((cell, j) => (
+                                <td
+                                  key={j}
+                                  className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap"
+                                >
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )
             )}
@@ -252,8 +307,8 @@ const CargarDatos = () => {
         <ul className="text-sm text-blue-700 space-y-1">
           <li>• Los archivos deben estar en formato CSV o Excel</li>
           <li>• Puedes arrastrar y soltar o hacer click para seleccionar</li>
-          <li>• Asegúrate de que los datos estén completos y sin errores</li>
-          <li>• La primera fila debe contener los encabezados de columna</li>
+          <li>• La tabla de <strong>stock</strong> está paginada (10 filas por página)</li>
+          <li>• Las tablas de <strong>participación</strong> y <strong>prioridad</strong> muestran todos los datos</li>
           <li>• Sube los tres archivos para continuar con el análisis</li>
         </ul>
       </div>
