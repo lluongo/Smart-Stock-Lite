@@ -49,7 +49,7 @@ const CargarDatos = () => {
 
   const fileDescriptions = {
     stock: 'Inventario por depósito (Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA)',
-    participacion: 'Ranking y participación (ranking, participacion)',
+    participacion: 'Sucursal y participación (sucursal, participacion)',
     prioridad: 'Prioridad por producto (prioridad, producto)',
     distribucionAuto: 'Distribución automática (Col A: talle, Col B: color, Col C: cantidad_total, Fila 6: % por tienda)',
   };
@@ -507,8 +507,8 @@ const CargarDatos = () => {
             </div>
             <div>
               <p className="font-medium mb-1">📊 Participación:</p>
-              <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">ranking, participacion</code></p>
-              <p className="text-xs mt-0.5">Ejemplo: 1, 35.5</p>
+              <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">sucursal, participacion</code></p>
+              <p className="text-xs mt-0.5">Ejemplo: Sucursal_001, 35.5</p>
             </div>
             <div>
               <p className="font-medium mb-1">⭐ Prioridad:</p>

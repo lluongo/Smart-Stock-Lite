@@ -20,14 +20,14 @@ export const validarStock = (data) => {
 
   // ========== VALIDACIÓN: RECHAZAR si es de OTRO tipo ==========
 
-  // Si tiene "ranking" o "participacion", ES DE PARTICIPACIÓN
-  const tieneRanking = headersLower.some(h => h.includes('ranking'));
+  // Si tiene "sucursal" o "participacion", ES DE PARTICIPACIÓN
+  const tieneSucursal = headersLower.some(h => h.includes('sucursal'));
   const tieneParticipacion = headersLower.some(h => h.includes('participacion') && !h.includes('coddep'));
 
-  if (tieneRanking && tieneParticipacion) {
+  if (tieneSucursal && tieneParticipacion) {
     return {
       valido: false,
-      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PARTICIPACIÓN (contiene "ranking" y "participacion"). Súbelo en la sección "Participación", NO en "Stock".'
+      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PARTICIPACIÓN (contiene "sucursal" y "participacion"). Súbelo en la sección "Participación", NO en "Stock".'
     };
   }
 
@@ -100,7 +100,7 @@ export const validarStock = (data) => {
 
 /**
  * Valida archivo de PARTICIPACIÓN
- * Columnas requeridas: ranking, participacion
+ * Columnas requeridas: sucursal, participacion
  */
 export const validarParticipacion = (data) => {
   if (!data || data.length < 2) {
@@ -143,31 +143,31 @@ export const validarParticipacion = (data) => {
   if (headers.length > 3) {
     return {
       valido: false,
-      error: '🚫 ARCHIVO INCORRECTO: El archivo de Participación debe tener solo 2 columnas (ranking, participacion). Este archivo tiene demasiadas columnas. ¿Es un archivo de Stock?'
+      error: '🚫 ARCHIVO INCORRECTO: El archivo de Participación debe tener solo 2 columnas (sucursal, participacion). Este archivo tiene demasiadas columnas. ¿Es un archivo de Stock?'
     };
   }
 
   // ========== VALIDAR columnas REQUERIDAS para PARTICIPACIÓN ==========
 
-  const tieneRanking = headersLower.some(h =>
-    h === 'ranking' || h.includes('rank')
+  const tieneSucursal = headersLower.some(h =>
+    h === 'sucursal' || h.includes('sucursal')
   );
 
   const tieneParticipacion = headersLower.some(h =>
     h === 'participacion' || h === 'participación' || h.includes('participac')
   );
 
-  if (!tieneRanking) {
+  if (!tieneSucursal) {
     return {
       valido: false,
-      error: 'El archivo de PARTICIPACIÓN requiere la columna "ranking".\n\nFormato esperado: ranking, participacion'
+      error: 'El archivo de PARTICIPACIÓN requiere la columna "sucursal".\n\nFormato esperado: sucursal, participacion'
     };
   }
 
   if (!tieneParticipacion) {
     return {
       valido: false,
-      error: 'El archivo de PARTICIPACIÓN requiere la columna "participacion".\n\nFormato esperado: ranking, participacion'
+      error: 'El archivo de PARTICIPACIÓN requiere la columna "participacion".\n\nFormato esperado: sucursal, participacion'
     };
   }
 
@@ -189,7 +189,7 @@ export const validarParticipacion = (data) => {
   if (filasConDatos === 0) {
     return {
       valido: false,
-      error: 'El archivo no contiene datos de ranking'
+      error: 'El archivo no contiene datos de sucursales'
     };
   }
 
