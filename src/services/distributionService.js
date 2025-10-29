@@ -563,6 +563,14 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   let totalUnidadesDistribuidas = 0;
   Object.values(distribucionPorSKU).forEach(dist => {
     Object.entries(dist).forEach(([suc, unidades]) => {
+      // Inicializar sucursal si no existe (por si acaso)
+      if (!resumenSucursales[suc]) {
+        resumenSucursales[suc] = {
+          totalUnidades: 0,
+          participacionEsperada: participaciones[suc] || 0,
+          participacionReal: 0
+        };
+      }
       resumenSucursales[suc].totalUnidades += unidades;
       totalUnidadesDistribuidas += unidades;
     });
@@ -575,13 +583,16 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   });
 
   // Paso 5: Validación Check Sum
-  const totalOriginal = productos.reduce((sum, p) => sum + p.cantidad, 0);
+  // Usar SKUs consolidados para calcular total original correcto
+  const totalOriginal = Object.values(skusConsolidados).reduce((sum, sku) => sum + sku.cantidadTotal, 0);
   const checkSum = {
     totalOriginal,
     totalDistribuido: totalUnidadesDistribuidas,
     diferencia: totalOriginal - totalUnidadesDistribuidas,
     esValido: totalOriginal === totalUnidadesDistribuidas
   };
+
+  console.log(`✅ Check Sum: ${checkSum.esValido ? 'OK' : 'ERROR'} - Original: ${totalOriginal}, Distribuido: ${totalUnidadesDistribuidas}, Diferencia: ${checkSum.diferencia}`);
 
   // Paso 6: Generar transferencias optimizadas desde depósitos a sucursales
   const transferencias = [];
