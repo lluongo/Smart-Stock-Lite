@@ -43,9 +43,9 @@ const CargarDatos = () => {
   const rowsPerPage = 10;
 
   const fileDescriptions = {
-    stock: 'Stock por tienda (SKU, Talle, Color, Locales...)',
-    participacion: 'Porcentaje de venta por tienda (Local, % VTA)',
-    prioridad: 'Prioridad de distribución (SKU, Prioridad, Capacidad, Categoria)',
+    stock: 'Inventario por depósito (Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA)',
+    participacion: 'Ranking y participación (ranking, participacion)',
+    prioridad: 'Prioridad por producto (prioridad, producto)',
   };
 
   const handleFileUpload = (type, file) => {
@@ -356,21 +356,21 @@ const CargarDatos = () => {
         <div className="space-y-3 text-sm text-blue-700">
           <div>
             <p className="font-medium mb-1">📦 Stock:</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">SKU, Talle, Color, Local1, Local2, ...</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: P001, M, Azul, 5, 8, 3</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: 001, Depósito Central, AZ, Azul, M, 15, Remera, Nacional, Verano</p>
           </div>
           <div>
             <p className="font-medium mb-1">📊 Participación:</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">Local, % VTA</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: Local Centro, 35</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">ranking, participacion</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: 1, 35.5</p>
           </div>
           <div>
             <p className="font-medium mb-1">⭐ Prioridad:</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">SKU, Prioridad, Capacidad, Categoria</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: P001, Alta, 100, Verano</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">prioridad, producto</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: Alta, P001</p>
           </div>
           <div className="pt-2 border-t border-blue-300">
-            <p className="text-xs">💡 Archivos de ejemplo disponibles en <code className="bg-blue-100 px-1 rounded">public/ejemplos/</code></p>
+            <p className="text-xs font-medium">⚠️ IMPORTANTE: Los archivos deben tener EXACTAMENTE estas columnas. No se aceptarán otros formatos.</p>
           </div>
         </div>
       </div>
