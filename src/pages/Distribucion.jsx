@@ -155,7 +155,7 @@ const Distribucion = () => {
             Distribución Automática
           </h1>
           <p className="text-gray-500 mt-1">
-            Hamilton + Reglas de Negocio R1-R8 - Sin stock sin asignar
+            Distribución inteligente - Sin stock sin asignar
           </p>
         </div>
         <div className="flex space-x-3">
@@ -202,7 +202,7 @@ const Distribucion = () => {
             )}
             <div className="flex-1">
               <h3 className={`text-lg font-bold mb-2 ${resultado.checkSum.esValido ? 'text-green-900' : 'text-red-900'}`}>
-                ✅ Validación Check Sum
+                ✅ Validación de Distribución
               </h3>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
@@ -624,65 +624,6 @@ const Distribucion = () => {
           </div>
         </div>
       )}
-
-      {/* Reglas Aplicadas */}
-      {resultado && (
-        <div className="card bg-blue-50 border-blue-200">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">
-            Reglas de Negocio Aplicadas
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-700">
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R1:</strong> Mantener curva entera (TIPOLOGIA + Color)</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R2:</strong> Sobrantes según necesidad del local</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R3:</strong> Locales grandes NO sacan mercadería</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R4:</strong> Minimizar movimientos inter-local</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R5:</strong> Limpieza de curvas rotas existentes</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R6:</strong> Interior se acomoda entre ellos</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R7:</strong> Categoría + prioridad (trazabilidad)</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span><strong>R8:</strong> UTA se acumula (análisis futuro IA)</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Algoritmo Info */}
-      <div className="card bg-gray-50 border-gray-200">
-        <h3 className="text-sm font-bold text-gray-900 mb-2">
-          Algoritmo de Hamilton + Reglas de Negocio
-        </h3>
-        <p className="text-xs text-gray-700 mb-2">
-          <strong>Capa 1:</strong> Algoritmo de Mayor Resto (Hamilton) - Distribución matemática exacta sin residuos.
-        </p>
-        <p className="text-xs text-gray-700 mb-2">
-          <strong>Capa 2:</strong> Reglas R1-R8 aplicadas secuencialmente para optimizar curvas y minimizar movimientos.
-        </p>
-        <p className="text-xs text-gray-700">
-          <strong>Resultado:</strong> 100% del stock distribuido con trazabilidad completa.
-        </p>
-      </div>
     </div>
   );
 };
