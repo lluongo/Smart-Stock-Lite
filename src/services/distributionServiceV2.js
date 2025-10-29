@@ -16,6 +16,9 @@ const UMBRAL_SOBRESTOCK_CURVAS = 3; // Curvas - Sobrestock permitido para transf
 // Trazabilidad global
 const trazabilidad = [];
 
+// Tracking de motivos de transferencias por SKU + Sucursal
+const motivosTransferencia = {};
+
 const log = (regla, mensaje, datos = {}) => {
   const entrada = {
     regla,
@@ -25,6 +28,16 @@ const log = (regla, mensaje, datos = {}) => {
   };
   trazabilidad.push(entrada);
   console.log(`[${regla}] ${mensaje}`, datos);
+};
+
+const registrarMotivoTransferencia = (sku, sucursal, motivo) => {
+  const clave = `${sku}_${sucursal}`;
+  motivosTransferencia[clave] = motivo;
+};
+
+const obtenerMotivoTransferencia = (sku, sucursal) => {
+  const clave = `${sku}_${sucursal}`;
+  return motivosTransferencia[clave] || 'Distribución según % UTA (Hamilton)';
 };
 
 // ============================================================================
@@ -412,9 +425,16 @@ const validarCurvasCompletas = (distribucionPorSKU, curvas, sucursales, particip
     const localMayorParticipacion = Object.entries(participaciones)
       .reduce((max, [suc, pct]) => pct > max.pct ? { suc, pct } : max, { suc: null, pct: 0 }).suc;
 
-    unidadesRetiradas.forEach(({ sku, unidades }) => {
+    unidadesRetiradas.forEach(({ sku, unidades, sucursalOrigen }) => {
       if (!distribucionPorSKU[sku]) distribucionPorSKU[sku] = {};
       distribucionPorSKU[sku][localMayorParticipacion] = (distribucionPorSKU[sku][localMayorParticipacion] || 0) + unidades;
+
+      // Registrar motivo de transferencia
+      registrarMotivoTransferencia(
+        sku,
+        localMayorParticipacion,
+        `CROSS-R2: Redistribución por curva rota (<70%) desde ${sucursalOrigen}`
+      );
 
       log('CROSS-R2', `Redistribuidas ${unidades} unidades de ${sku} a ${localMayorParticipacion} (mayor participación)`, {
         sku,
@@ -549,9 +569,16 @@ const limpiarCurvasRotas = (distribucionPorSKU, curvas, sucursales, participacio
     const localMayorParticipacion = Object.entries(participaciones)
       .reduce((max, [suc, pct]) => pct > max.pct ? { suc, pct } : max, { suc: null, pct: 0 }).suc;
 
-    unidadesRetiradas.forEach(({ sku, unidades }) => {
+    unidadesRetiradas.forEach(({ sku, unidades, sucursalOrigen }) => {
       if (!distribucionPorSKU[sku]) distribucionPorSKU[sku] = {};
       distribucionPorSKU[sku][localMayorParticipacion] = (distribucionPorSKU[sku][localMayorParticipacion] || 0) + unidades;
+
+      // Registrar motivo de transferencia
+      registrarMotivoTransferencia(
+        sku,
+        localMayorParticipacion,
+        `INTERLOCAL-R7: Limpieza de curva rota (<50%) desde ${sucursalOrigen}`
+      );
     });
 
     log('INTERLOCAL-R7', `Limpieza completada: ${unidadesRetiradas.length} ajustes, ${unidadesRetiradas.reduce((sum, u) => sum + u.unidades, 0)} unidades redistribuidas`);
@@ -641,8 +668,9 @@ const aplicarReglasInterlocal = (distribucionPorSKU, curvas, sucursales, partici
 // ============================================================================
 
 export const generarDistribucionAutomatica = (stockData, participacionData, prioridadData) => {
-  // Limpiar trazabilidad
+  // Limpiar trazabilidad y motivos
   trazabilidad.length = 0;
+  Object.keys(motivosTransferencia).forEach(key => delete motivosTransferencia[key]);
 
   log('INICIO', '🚀 Iniciando distribución inteligente v2.0');
 
@@ -799,6 +827,12 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
 
         const unidadesDesdeDeposito = Math.min(unidadesPendientes, deposito.cantidadDisponible);
 
+        // Obtener motivo específico basado en reglas aplicadas
+        const motivo = obtenerMotivoTransferencia(sku, sucursal);
+        const reglaAplicada = motivo.includes('CROSS-R2') ? 'CROSS-R2'
+                            : motivo.includes('INTERLOCAL-R7') ? 'INTERLOCAL-R7'
+                            : 'HAMILTON';
+
         transferencias.push({
           sku,
           talle: medida,
@@ -806,8 +840,8 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
           origen: deposito.nombre,
           destino: sucursal,
           unidades: unidadesDesdeDeposito,
-          motivo: 'Distribución base Hamilton',
-          reglaAplicada: 'HAMILTON_BASE',
+          motivo: motivo,
+          reglaAplicada: reglaAplicada,
           prioridad,
           temporada
         });
