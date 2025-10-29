@@ -191,25 +191,39 @@ export const parsearParticipacion = (data) => {
 
 /**
  * Parsear archivo de PRIORIDAD
- * Columnas: prioridad, producto
+ * Columnas: prioridad, tipologia
+ * Define el orden en que se distribuyen las tipologías (menor número = primero)
  */
 export const parsearPrioridad = (data) => {
   if (!data || data.length < 2) {
-    return {}; // Prioridad es opcional
+    throw new Error('El archivo de prioridad es OBLIGATORIO. Debe contener al menos una tipología con su prioridad.');
   }
 
+  const headers = data[0].map(h => String(h).toLowerCase().trim());
   const prioridades = {};
+
+  // Encontrar índices de columnas
+  const idxPrioridad = headers.findIndex(h => h.includes('prioridad') || h.includes('priorid'));
+  const idxTipologia = headers.findIndex(h => h.includes('tipologia') || h.includes('tipología'));
+
+  if (idxPrioridad < 0 || idxTipologia < 0) {
+    throw new Error('El archivo de prioridad debe tener las columnas: prioridad, tipologia');
+  }
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length < 2) continue;
 
-    const prioridad = parseInt(row[0]) || 999;
-    const producto = String(row[1] || '').trim();
+    const prioridad = parseInt(row[idxPrioridad]) || 999;
+    const tipologia = String(row[idxTipologia] || '').trim();
 
-    if (producto) {
-      prioridades[producto] = prioridad;
+    if (tipologia) {
+      prioridades[tipologia] = prioridad;
     }
+  }
+
+  if (Object.keys(prioridades).length === 0) {
+    throw new Error('El archivo de prioridad no contiene datos válidos');
   }
 
   return prioridades;
@@ -384,6 +398,24 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   const prioridades = parsearPrioridad(prioridadData || []);
 
   const sucursales = Object.keys(participaciones);
+
+  // Paso 1.5: ORDENAR productos por prioridad (menor número = primero)
+  // Tipologías sin prioridad asignada se procesan al final (prioridad = 999)
+  productos.sort((a, b) => {
+    const prioridadA = prioridades[a.tipologia] || 999;
+    const prioridadB = prioridades[b.tipologia] || 999;
+
+    if (prioridadA !== prioridadB) {
+      return prioridadA - prioridadB; // Menor número primero
+    }
+
+    // Si tienen la misma prioridad, mantener orden original (por tipologia)
+    return a.tipologia.localeCompare(b.tipologia);
+  });
+
+  console.log(`🎯 Orden de distribución por prioridad:`,
+    [...new Set(productos.map(p => `${p.tipologia} (Prioridad: ${prioridades[p.tipologia] || 999})`))].slice(0, 10)
+  );
 
   // Paso 2: CAPA 1 - Aplicar Hamilton a cada SKU
   const distribucionPorSKU = {};

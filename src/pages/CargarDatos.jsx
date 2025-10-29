@@ -45,7 +45,7 @@ const CargarDatos = () => {
   const fileDescriptions = {
     stock: 'Inventario por depósito (Coddep, Deposito, Color, NombreColor, Medida, Cantidad, TIPOLOGIA, ORIGEN, TEMPORADA)',
     participacion: 'Sucursal y participación (sucursal, participacion)',
-    prioridad: 'Prioridad por producto (prioridad, producto)',
+    prioridad: 'Orden de distribución por tipología (prioridad, tipologia)',
   };
 
   const handleFileUpload = (type, file) => {
@@ -377,9 +377,10 @@ const CargarDatos = () => {
             <p className="text-xs mt-0.5 font-medium">⚠️ Las participaciones deben sumar exactamente 100%</p>
           </div>
           <div>
-            <p className="font-medium mb-1">⭐ Prioridad (opcional):</p>
-            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">prioridad, producto</code></p>
-            <p className="text-xs mt-0.5">Ejemplo: Alta, P001</p>
+            <p className="font-medium mb-1">⭐ Prioridad (OBLIGATORIO):</p>
+            <p className="text-xs">Columnas: <code className="bg-blue-100 px-1 rounded">prioridad, tipologia</code></p>
+            <p className="text-xs mt-0.5">Ejemplo: 1, Remera (menor número = mayor prioridad)</p>
+            <p className="text-xs mt-0.5 font-medium">📋 Define el orden en que se distribuyen las tipologías</p>
           </div>
         </div>
       </div>

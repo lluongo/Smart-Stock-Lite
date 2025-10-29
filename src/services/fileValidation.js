@@ -31,14 +31,14 @@ export const validarStock = (data) => {
     };
   }
 
-  // Si tiene "prioridad" Y "producto" (sin otras columnas de stock), ES DE PRIORIDAD
+  // Si tiene "prioridad" Y "tipologia" (sin otras columnas de stock), ES DE PRIORIDAD
   const tienePrioridad = headersLower.some(h => h.includes('prioridad'));
-  const tieneProducto = headersLower.some(h => h === 'producto');
+  const tieneTipologiaSola = headersLower.some(h => h.includes('tipologia') || h.includes('tipología'));
 
-  if (tienePrioridad && tieneProducto && headers.length <= 3) {
+  if (tienePrioridad && tieneTipologiaSola && headers.length <= 3) {
     return {
       valido: false,
-      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PRIORIDAD (contiene "prioridad" y "producto"). Súbelo en la sección "Prioridad", NO en "Stock".'
+      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PRIORIDAD (contiene "prioridad" y "tipologia"). Súbelo en la sección "Prioridad", NO en "Stock".'
     };
   }
 
@@ -128,14 +128,13 @@ export const validarParticipacion = (data) => {
     };
   }
 
-  // Si tiene "prioridad" Y "producto", ES DE PRIORIDAD
+  // Si tiene "prioridad" Y "tipologia", ES DE PRIORIDAD
   const tienePrioridad = headersLower.some(h => h.includes('prioridad'));
-  const tieneProducto = headersLower.some(h => h === 'producto');
 
-  if (tienePrioridad && tieneProducto) {
+  if (tienePrioridad && tieneTipologia) {
     return {
       valido: false,
-      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PRIORIDAD (contiene "prioridad" y "producto"). Súbelo en la sección "Prioridad", NO en "Participación".'
+      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PRIORIDAD (contiene "prioridad" y "tipologia"). Súbelo en la sección "Prioridad", NO en "Participación".'
     };
   }
 
@@ -216,7 +215,7 @@ export const validarParticipacion = (data) => {
 
 /**
  * Valida archivo de PRIORIDAD
- * Columnas requeridas: prioridad, producto
+ * Columnas requeridas: prioridad, tipologia
  */
 export const validarPrioridad = (data) => {
   if (!data || data.length < 2) {
@@ -231,28 +230,27 @@ export const validarPrioridad = (data) => {
 
   // ========== VALIDACIÓN: RECHAZAR si es de OTRO tipo ==========
 
-  // Si tiene columnas de STOCK, rechazar
+  // Si tiene columnas de STOCK (con más columnas), rechazar
   const tieneCoddep = headersLower.some(h => h.includes('coddep'));
   const tieneDeposito = headersLower.some(h => h.includes('deposito') || h.includes('depósito'));
   const tieneMedida = headersLower.some(h => h.includes('medida') || h.includes('talle'));
   const tieneColor = headersLower.some(h => h === 'color');
-  const tieneTipologia = headersLower.some(h => h.includes('tipologia') || h.includes('tipología'));
 
-  if (tieneCoddep || tieneDeposito || tieneMedida || tieneColor || tieneTipologia) {
+  if (tieneCoddep || tieneDeposito || tieneMedida || tieneColor) {
     return {
       valido: false,
       error: '🚫 ARCHIVO INCORRECTO: Este archivo es de STOCK (contiene columnas como Coddep, Deposito, Medida, Color, etc.). Súbelo en la sección "Stock", NO en "Prioridad".'
     };
   }
 
-  // Si tiene "ranking", ES DE PARTICIPACIÓN
-  const tieneRanking = headersLower.some(h => h === 'ranking' || h.includes('rank'));
+  // Si tiene "sucursal" o "participacion", ES DE PARTICIPACIÓN
+  const tieneSucursal = headersLower.some(h => h.includes('sucursal'));
   const tieneParticipacion = headersLower.some(h => h === 'participacion' || h === 'participación');
 
-  if (tieneRanking && tieneParticipacion) {
+  if (tieneSucursal && tieneParticipacion) {
     return {
       valido: false,
-      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PARTICIPACIÓN (contiene "ranking" y "participacion"). Súbelo en la sección "Participación", NO en "Prioridad".'
+      error: '🚫 ARCHIVO INCORRECTO: Este archivo es de PARTICIPACIÓN (contiene "sucursal" y "participacion"). Súbelo en la sección "Participación", NO en "Prioridad".'
     };
   }
 
@@ -262,21 +260,21 @@ export const validarPrioridad = (data) => {
     h === 'prioridad' || h.includes('priorid')
   );
 
-  const tieneProducto = headersLower.some(h =>
-    h === 'producto' || h.includes('product') || h.includes('sku') || h.includes('codigo')
+  const tieneTipologia = headersLower.some(h =>
+    h === 'tipologia' || h === 'tipología' || h.includes('tipolog')
   );
 
   if (!tienePrioridad) {
     return {
       valido: false,
-      error: 'El archivo de PRIORIDAD requiere la columna "prioridad".\n\nFormato esperado: prioridad, producto'
+      error: 'El archivo de PRIORIDAD requiere la columna "prioridad".\n\nFormato esperado: prioridad, tipologia'
     };
   }
 
-  if (!tieneProducto) {
+  if (!tieneTipologia) {
     return {
       valido: false,
-      error: 'El archivo de PRIORIDAD requiere la columna "producto".\n\nFormato esperado: prioridad, producto'
+      error: 'El archivo de PRIORIDAD requiere la columna "tipologia".\n\nFormato esperado: prioridad, tipologia'
     };
   }
 
@@ -292,13 +290,13 @@ export const validarPrioridad = (data) => {
   if (filasConDatos === 0) {
     return {
       valido: false,
-      error: 'El archivo no contiene datos de productos'
+      error: 'El archivo no contiene datos de tipologías'
     };
   }
 
   return {
     valido: true,
-    mensaje: `✅ Archivo de Prioridad válido: ${filasConDatos} productos detectados`,
+    mensaje: `✅ Archivo de Prioridad válido: ${filasConDatos} tipologías detectadas`,
     productos: filasConDatos
   };
 };
