@@ -19,30 +19,27 @@ Una aplicación web moderna y profesional para la gestión inteligente de invent
 
 3. **Cargar Datos**
    - Subida de archivos CSV/Excel
-   - Tres tipos de archivos:
-     - `stock`: Stock por tienda
-     - `participacion`: Porcentaje de venta por tienda
-     - `prioridad`: Prioridad de distribución por producto
-   - Validación en tiempo real
-   - Previsualización de datos
+   - Tres tipos de archivos (TODOS OBLIGATORIOS):
+     - `stock`: Inventario por depósito con columnas específicas
+     - `participacion`: Porcentaje de participación por sucursal (debe sumar 100%)
+     - `prioridad`: Orden de distribución por tipología (define qué productos se distribuyen primero)
+   - Validación estricta en tiempo real
+   - Previsualización de datos con paginación
+   - Detección automática de archivos incorrectos
 
-4. **Distribución**
-   - Tabla editable de productos
-   - Sugerencias del sistema
-   - Semáforos visuales de estado
-   - Edición rápida de valores
+4. **Distribución** ⭐ REDISEÑADO
+   - Motor de distribución automática con **Algoritmo de Hamilton + Reglas R1-R8**
+   - Cálculo automático al cargar los 3 archivos
+   - 4 hojas de resultados:
+     - **Distribución Final**: Detalle por SKU y sucursal
+     - **Transferencias**: Movimientos propuestos
+     - **Resumen por Sucursal**: Totales por local
+     - **Log de Trazabilidad**: Historial de aplicación de reglas
+   - Validación de Check Sum (100% distribución)
+   - Estadísticas en tiempo real
+   - Exportación a Excel con múltiples hojas
 
-5. **Distribución Inter-local** ⭐ NUEVO
-   - Motor de optimización automática con reglas de negocio
-   - Análisis de curvas completas/rotas por local
-   - Detección de sobrestock y curvas faltantes
-   - Redistribución inteligente según % de ventas
-   - Visualización con semáforos (Verde/Amarillo/Rojo)
-   - Estadísticas detalladas de movimientos
-   - Exportación completa a formato XLS
-   - Aplicación de reglas R1-R7
-
-6. **Revisión y Exportación**
+5. **Revisión y Exportación**
    - Resumen de movimientos
    - Indicadores de totales
    - Exportación a CSV y XLS
@@ -57,14 +54,14 @@ Una aplicación web moderna y profesional para la gestión inteligente de invent
 
 ## Tecnologías Utilizadas
 
-- **React 19** - Framework de UI
-- **Vite** - Build tool y dev server
+- **React 19.1.1** - Framework de UI
+- **Vite 7.1.12** - Build tool y dev server
 - **Tailwind CSS 4** - Framework de estilos
 - **React Router** - Navegación
 - **Recharts** - Gráficos
 - **Lucide React** - Iconos
-- **PapaParse** - Parser de CSV
-- **SheetJS (xlsx)** - Exportación a Excel
+- **PapaParse 5.5.3** - Parser de CSV
+- **SheetJS (xlsx)** - Exportación a Excel con múltiples hojas
 
 ## Instalación
 
@@ -104,8 +101,7 @@ Smart-Stock-Lite/
 │   └── ejemplos/        # Archivos CSV de ejemplo
 │       ├── ejemplo_stock.csv
 │       ├── ejemplo_participacion.csv
-│       ├── ejemplo_prioridad.csv
-│       └── README.md
+│       └── ejemplo_prioridad.csv
 ├── src/
 │   ├── components/      # Componentes reutilizables
 │   │   ├── Layout.jsx
@@ -116,13 +112,12 @@ Smart-Stock-Lite/
 │   │   ├── Login.jsx
 │   │   ├── Dashboard.jsx
 │   │   ├── CargarDatos.jsx
-│   │   ├── Distribucion.jsx
-│   │   ├── DistribucionInterlocal.jsx  ⭐ NUEVO
+│   │   ├── Distribucion.jsx      ⭐ Motor Hamilton + R1-R8
 │   │   ├── Revision.jsx
 │   │   └── Configuracion.jsx
 │   ├── services/        # Lógica de negocio
-│   │   ├── distributionEngine.js  ⭐ Motor de distribución
-│   │   └── xlsExport.js           ⭐ Exportación XLS
+│   │   ├── distributionService.js  ⭐ Algoritmo Hamilton + R1-R8
+│   │   └── fileValidation.js       ⭐ Validación estricta
 │   ├── App.jsx          # Componente principal y rutas
 │   ├── main.jsx         # Punto de entrada
 │   └── index.css        # Estilos globales
@@ -158,94 +153,228 @@ Smart-Stock-Lite/
 
 ## Flujo de Usuario
 
-### Flujo Básico
-1. **Login** → Ingresar credenciales
-2. **Dashboard** → Ver resumen y KPIs
-3. **Cargar Datos** → Subir archivos CSV
-4. **Distribución** → Revisar y ajustar sugerencias
-5. **Revisión** → Confirmar y exportar
+### Flujo de Distribución Automática ⭐
 
-### Flujo Motor de Distribución Inter-local ⭐
 1. **Login** → Ingresar credenciales
-2. **Cargar Datos** → Subir 3 archivos: stock, participación, prioridad
-3. **Distribución Inter-local** → El motor calcula automáticamente:
-   - Análisis de curvas (completas/rotas)
-   - Detección de sobrestock
-   - Movimientos óptimos entre locales
-   - Aplicación de reglas R1-R7
-4. **Exportar** → Descargar dashboard completo en XLS con:
-   - Movimientos propuestos
-   - Análisis de curvas
-   - Estadísticas detalladas
+2. **Cargar Datos** → Subir 3 archivos OBLIGATORIOS:
+   - **Stock**: Inventario por depósito
+   - **Participación**: Porcentaje por sucursal (debe sumar 100%)
+   - **Prioridad**: Orden de distribución por tipología
+3. **Distribución** → El motor calcula automáticamente:
+   - Ordena productos por prioridad (menor número = primero)
+   - Aplica Algoritmo de Hamilton con triple desempate
+   - Ejecuta reglas R1-R8 secuencialmente
+   - Genera 4 hojas de resultados
+   - Valida check sum al 100%
+4. **Exportar** → Descargar Excel completo con:
+   - Distribución final detallada
+   - Transferencias propuestas
+   - Resumen por sucursal
+   - Log de trazabilidad completo
 
 ## Formato de Archivos
 
 Los archivos de ejemplo están disponibles en `public/ejemplos/`
 
-### Stock (stock.csv)
+### 1. Stock (stock.csv) - OBLIGATORIO
+
+Inventario por depósito con 9 columnas requeridas:
+
 ```csv
-SKU,Talle,Color,Local Centro,Local Norte,Local Sur,Local Oeste
-P001,S,Azul,5,2,0,8
-P001,M,Azul,8,4,3,10
-P001,L,Azul,6,5,2,7
-P001,XL,Azul,3,1,0,5
+Coddep,Deposito,Color,NombreColor,Medida,Cantidad,TIPOLOGIA,ORIGEN,TEMPORADA
+001,Depósito Central,AZ,Azul,M,15,Remera,Nacional,Verano
+001,Depósito Central,AZ,Azul,L,20,Remera,Nacional,Verano
+002,Depósito Norte,RJ,Rojo,S,10,Pantalon,Importado,Continuo
 ```
 
-### Participación (participacion.csv)
+**Columnas requeridas:**
+- `Coddep`: Código de depósito
+- `Deposito`: Nombre del depósito
+- `Color`: Código de color
+- `NombreColor`: Nombre descriptivo del color
+- `Medida`: Talle/medida (S, M, L, XL, 38, 40, etc.)
+- `Cantidad`: Unidades disponibles (entero)
+- `TIPOLOGIA`: Tipo de producto (Remera, Pantalon, Buzo, etc.)
+- `ORIGEN`: Origen del producto (Nacional, Importado, etc.)
+- `TEMPORADA`: Temporada (Verano, Invierno, Continuo, etc.)
+
+**Nota:** El SKU se genera automáticamente como: `TIPOLOGIA_Color_Medida`
+
+### 2. Participación (participacion.csv) - OBLIGATORIO
+
+Porcentaje de participación por sucursal. **DEBE SUMAR EXACTAMENTE 100%** (tolerancia ±0.5%)
+
 ```csv
-Local,% VTA
-Local Centro,35
-Local Norte,25
-Local Sur,20
-Local Oeste,20
+sucursal,participacion
+Sucursal_001,35.5
+Sucursal_002,25.0
+Sucursal_003,20.0
+Sucursal_004,19.5
 ```
 
-### Prioridad (prioridad.csv)
+**Columnas requeridas:**
+- `sucursal`: Nombre o código de sucursal
+- `participacion`: Porcentaje de participación (puede ser decimal 0.35 o porcentaje 35)
+
+**Validaciones:**
+- ✅ Acepta: valores entre 99.5% y 100.5%
+- ❌ Rechaza: valores fuera del rango (ej: 95%, 105%, 109%)
+- El sistema detecta automáticamente formato decimal vs porcentaje
+
+### 3. Prioridad (prioridad.csv) - OBLIGATORIO
+
+Orden en que se distribuyen las tipologías. **Menor número = mayor prioridad**
+
 ```csv
-SKU,Prioridad,Capacidad,Categoria
-P001,Alta,100,Verano
-P002,Alta,150,Verano
-P003,Media,200,Continuo
+prioridad,tipologia
+1,Remera
+2,Pantalon
+3,Buzo
+4,Campera
+5,Short
 ```
 
-## Motor de Distribución Inter-local
+**Columnas requeridas:**
+- `prioridad`: Número entero (1 = máxima prioridad, 2 = segunda, etc.)
+- `tipologia`: Tipo de producto (debe coincidir con TIPOLOGIA del archivo Stock)
 
-### Reglas de Negocio Implementadas
+**Comportamiento:**
+- Los productos se procesan en orden de prioridad (1 primero, 2 después, etc.)
+- Tipologías sin prioridad asignada se procesan al final (prioridad 999)
+- Si dos tipologías tienen la misma prioridad, se ordenan alfabéticamente
 
-El motor aplica automáticamente 7 reglas de optimización:
+## Motor de Distribución Automática
 
-- **R1**: Locales grandes solo mueven mercadería en caso de sobrestock
-- **R2**: Sobrestock = más de 3 curvas completas o exceso de capacidad
-- **R3**: Distribución proporcional según % de ventas del local
-- **R4**: Prioridad máxima a completar curvas
-- **R5**: Baja prioridad si un local no puede completar curva
-- **R6**: Evitar movimientos que rompan curvas del donante
-- **R7**: Análisis por categoría y criticidad
+### Algoritmo de Hamilton (Mayor Resto)
 
-### Objetivos del Motor
+Distribuye unidades enteras según porcentajes sin dejar residuo.
 
-1. **Optimizar disponibilidad** asegurando curvas completas
-2. **Aumentar eficiencia** en movimientos logísticos
-3. **Reducir sobrestock** y limpiar curvas rotas
-4. **Priorizar ventas** y capacidad de cada local
+**Proceso:**
+1. Calcula cuotas exactas: `cantidad × (participación / 100)`
+2. Asigna partes enteras a cada sucursal
+3. Calcula unidades faltantes
+4. Distribuye faltantes con triple desempate:
+   - **1º** Mayor residuo decimal
+   - **2º** Mayor participación
+   - **3º** Orden alfabético por sucursal
+
+**Ejemplo:**
+- Producto: 10 unidades
+- Participaciones: Suc_A=35%, Suc_B=32%, Suc_C=33%
+- Cuotas exactas: A=3.5, B=3.2, C=3.3
+- Partes enteras: A=3, B=3, C=3 (total 9)
+- Faltante: 1 unidad
+- Residuos: A=0.5, B=0.2, C=0.3
+- **Resultado: A=4, B=3, C=3** (A tiene mayor residuo)
+
+### Reglas de Negocio R1-R8
+
+El motor aplica secuencialmente 8 reglas después del Hamilton:
+
+- **R1: Mantener Curva Entera**
+  - Agrupa por TIPOLOGIA + Color
+  - Detecta curvas incompletas (<70% talles)
+  - Registra en trazabilidad
+
+- **R2: Sobrantes Completar Curva**
+  - Identifica excedentes
+  - Prioriza completar curvas faltantes
+
+- **R3: Locales Grandes**
+  - Detecta sucursales grandes
+  - Optimiza distribución
+
+- **R4: Minimizar Movimientos**
+  - Reduce transferencias innecesarias
+  - Consolida movimientos
+
+- **R5: Limpieza Curvas Rotas**
+  - Identifica curvas incompletas
+  - Propone limpieza
+
+- **R6: Interior Entre Ellos**
+  - Optimiza distribución regional
+  - Agrupa transferencias
+
+- **R7: Categoría + Prioridad**
+  - Registra tipología y prioridad
+  - Traza temporada y origen
+
+- **R8: UTA Acumulada**
+  - Acumula unidades totales por sucursal
+  - Genera estadísticas para análisis
 
 ### Salidas del Motor
 
-El sistema genera un archivo XLS con múltiples hojas:
+El sistema genera un archivo Excel (.xlsx) con 4 hojas:
 
-1. **Movimientos**: SKU, Talle, Color, Origen, Destino, Cantidad, Motivo, Prioridad, Estado
-2. **Análisis de Curvas**: Estado de completitud por producto y local
-3. **Estadísticas**: Métricas de eficiencia y distribución
+#### 1. Distribución Final
+```
+SKU | Talle | Color | NombreColor | Sucursal | Unidades | Cuota Exacta | Residuo | Origen | Temporada | Prioridad
+```
+
+#### 2. Transferencias
+```
+SKU | Talle | Color | Origen | Destino | Unidades | Motivo | Prioridad | Temporada
+```
+
+#### 3. Resumen por Sucursal
+```
+Sucursal | Total Unidades | Participación (%) | SKUs Únicos
+```
+
+#### 4. Log de Trazabilidad
+```
+Regla | SKU | Sucursal | Producto | Motivo | Prioridad | Temporada | Detalles
+```
+
+### Validaciones y Check Sum
+
+El sistema valida que:
+- ✅ Todos los archivos tengan el formato correcto
+- ✅ Participación sume 100% (±0.5%)
+- ✅ Prioridad contenga todas las tipologías necesarias
+- ✅ Total distribuido = Total original (check sum 100%)
+
+**Indicador de Check Sum:**
+- 🟢 Verde: 100% (perfecto)
+- 🟡 Amarillo: 99-101% (aceptable)
+- 🔴 Rojo: <99% o >101% (error)
 
 ## Funcionalidades Implementadas
 
-- [x] Motor de Distribución Inter-local con reglas R1-R7
-- [x] Análisis automático de curvas completas/rotas
-- [x] Detección de sobrestock y redistribución inteligente
-- [x] Exportación a formato XLS con múltiples hojas
-- [x] Visualización con semáforos (Verde/Amarillo/Rojo)
-- [x] Archivos CSV de ejemplo para testing
-- [x] Estadísticas detalladas de movimientos
+- [x] Motor de Distribución Automática con Algoritmo Hamilton
+- [x] Implementación completa de reglas R1-R8
+- [x] Validación estricta de archivos CSV (formato, columnas, sumas)
+- [x] Orden de distribución por prioridad
+- [x] Check sum al 100%
+- [x] Exportación a Excel con 4 hojas
+- [x] Trazabilidad completa de operaciones
+- [x] Interfaz unificada de distribución
+- [x] Archivos de ejemplo actualizados
+- [x] Previsualización con paginación para archivos grandes
+
+## Cambios Recientes (v2.0)
+
+### ✅ Eliminación de Duplicados
+- Removida opción "Distribución Inter-local" del menú
+- Unificada en una sola función "Distribución"
+
+### ✅ Validación Estricta
+- Participación debe sumar 100% (tolerancia ±0.5%)
+- Archivo rechazado si no cumple
+- Mensaje claro con suma actual y diferencia
+
+### ✅ Prioridad Obligatoria
+- Archivo de prioridad ahora es OBLIGATORIO
+- Columna cambiada: `producto` → `tipologia`
+- Define orden de distribución (menor número = primero)
+
+### ✅ Mejoras en UX
+- Descripciones actualizadas en todos los archivos
+- Instrucciones claras sobre formatos requeridos
+- Ejemplos mejorados con casos reales
+- Validaciones en tiempo real
 
 ## Próximas Funcionalidades
 
@@ -253,10 +382,12 @@ El sistema genera un archivo XLS con múltiples hojas:
 - [ ] Integración con API REST
 - [ ] Persistencia de datos
 - [ ] Notificaciones en tiempo real
-- [ ] Panel de configuración completo
+- [ ] Panel de configuración avanzado
 - [ ] Modo oscuro
-- [ ] Reportes avanzados
+- [ ] Reportes avanzados y analytics
 - [ ] Integración con n8n para automatización
+- [ ] Simulación de escenarios "What-if"
+- [ ] Historial de distribuciones
 
 ## Contribución
 
@@ -278,4 +409,4 @@ Este proyecto está bajo la Licencia MIT.
 
 ---
 
-Desarrollado con React, Vite y Tailwind CSS
+Desarrollado con React 19, Vite 7 y Tailwind CSS 4
