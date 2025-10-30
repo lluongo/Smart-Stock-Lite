@@ -10,7 +10,10 @@ import {
   Store,
   Activity,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Box
 } from 'lucide-react';
 import {
   generarDistribucionAutomatica,
@@ -25,11 +28,14 @@ const Distribucion = () => {
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
-  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, resumen, analisis
+  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, resumen, analisis, stock
 
   // Estados de paginación
   const [paginaDistribucion, setPaginaDistribucion] = useState(1);
   const [registrosPorPaginaDistribucion, setRegistrosPorPaginaDistribucion] = useState(10);
+
+  // Estado para controlar locales expandidos
+  const [localesExpandidos, setLocalesExpandidos] = useState({});
 
   // Calcular distribución al cargar datos
   useEffect(() => {
@@ -104,6 +110,14 @@ const Distribucion = () => {
   const handleItemsPerPageChange = (setPage, setItemsPerPage, value) => {
     setItemsPerPage(parseInt(value));
     setPage(1); // Reset to first page when changing items per page
+  };
+
+  // Función para expandir/colapsar locales
+  const toggleLocal = (local) => {
+    setLocalesExpandidos(prev => ({
+      ...prev,
+      [local]: !prev[local]
+    }));
   };
 
   // Si no hay datos cargados
@@ -321,6 +335,17 @@ const Distribucion = () => {
                 <Activity className="w-4 h-4 inline mr-2" />
                 Análisis por Local
               </button>
+              <button
+                onClick={() => setTabActiva('stock')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  tabActiva === 'stock'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Box className="w-4 h-4 inline mr-2" />
+                Stock por Local
+              </button>
             </nav>
           </div>
 
@@ -530,6 +555,123 @@ const Distribucion = () => {
                 </div>
               </div>
             )}
+
+            {/* TAB: Stock por Local */}
+            {tabActiva === 'stock' && resultado.distribucionDetallada && (() => {
+              // Agrupar distribución por sucursal
+              const stockPorLocal = {};
+              resultado.distribucionDetallada.forEach(item => {
+                if (!stockPorLocal[item.sucursal]) {
+                  stockPorLocal[item.sucursal] = [];
+                }
+                stockPorLocal[item.sucursal].push(item);
+              });
+
+              // Ordenar locales por % UTA descendente
+              const localesOrdenados = Object.keys(stockPorLocal).sort((a, b) => {
+                const utaA = resultado.participaciones[a] || 0;
+                const utaB = resultado.participaciones[b] || 0;
+                return utaB - utaA;
+              });
+
+              return (
+                <div className="space-y-4">
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-2">📦 Stock Post-Distribución por Local</h3>
+                    <p className="text-xs text-blue-700">
+                      Este detalle muestra el stock final asignado a cada sucursal luego de aplicar las 12 reglas de negocio.
+                      Haz clic en cada local para expandir y ver el detalle por tipología, talle y color.
+                    </p>
+                  </div>
+
+                  {localesOrdenados.map(local => {
+                    const items = stockPorLocal[local];
+                    const totalUnidades = items.reduce((sum, item) => sum + item.unidades, 0);
+                    const utaPorcentaje = resultado.participaciones[local] || 0;
+                    const isExpanded = localesExpandidos[local];
+
+                    return (
+                      <div key={local} className="border border-gray-200 rounded-lg overflow-hidden">
+                        {/* Header colapsable */}
+                        <button
+                          onClick={() => toggleLocal(local)}
+                          className="w-full px-6 py-4 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                        >
+                          <div className="flex items-center space-x-4">
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-gray-600" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-gray-600" />
+                            )}
+                            <div className="text-left">
+                              <h4 className="text-sm font-bold text-gray-900">{local}</h4>
+                              <p className="text-xs text-gray-500">% UTA: {utaPorcentaje.toFixed(2)}%</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-6">
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">Total Unidades</p>
+                              <p className="text-lg font-bold text-gray-900">{totalUnidades}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">SKUs Únicos</p>
+                              <p className="text-lg font-bold text-gray-900">{items.length}</p>
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* Contenido expandible */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-200">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipología</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talle</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidades</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orígenes</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {items
+                                    .sort((a, b) => {
+                                      // Ordenar por tipología, talle, color
+                                      if (a.sku !== b.sku) return a.sku.localeCompare(b.sku);
+                                      if (a.talle !== b.talle) return a.talle.localeCompare(b.talle);
+                                      return a.color.localeCompare(b.color);
+                                    })
+                                    .map((item, idx) => (
+                                      <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                          {item.sku}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                          {item.talle}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                          {item.color}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                          {item.unidades}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                          {item.origenes}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
           </div>
         </div>
