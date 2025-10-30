@@ -898,7 +898,9 @@ const aplicarReglasComerciales = (distribucionPorSKU, curvas, sucursales, partic
   eliminarMicroasignaciones(distribucionPorSKU, sucursales, participaciones);
 
   // Regla 12: Reasignar si top UTA completo
-  reasignarSiTopUTACompleto(distribucionPorSKU, curvas, sucursales, participaciones);
+  // DESACTIVADA TEMPORALMENTE: Esta regla causa distorsiones en % de participación
+  // reasignarSiTopUTACompleto(distribucionPorSKU, curvas, sucursales, participaciones);
+  log('COMERCIAL-R12', '⚠️ REGLA DESACTIVADA: Causa distorsiones en participación (envía todo a segundo UTA)');
 
   log('COMERCIAL', '✅ Reglas COMERCIALES completadas');
 };
