@@ -27,17 +27,16 @@ Una aplicación web moderna y profesional para la gestión inteligente de invent
    - Previsualización de datos con paginación
    - Detección automática de archivos incorrectos
 
-4. **Distribución** ⭐ REDISEÑADO
-   - Motor de distribución automática con **Algoritmo de Hamilton + Reglas R1-R8**
+4. **Distribución** ⭐ REDISEÑADO v2.0
+   - Motor de distribución automática con **Algoritmo de Hamilton + 12 Reglas de Negocio**
    - Cálculo automático al cargar los 3 archivos
-   - 4 hojas de resultados:
-     - **Distribución Final**: Detalle por SKU y sucursal
-     - **Transferencias**: Movimientos propuestos
-     - **Resumen por Sucursal**: Totales por local
-     - **Log de Trazabilidad**: Historial de aplicación de reglas
+   - **3 tabs de resultados:**
+     - **Distribución Final**: Transferencias individuales (1 origen → 1 destino)
+     - **Resumen Sucursales**: Totales y desviaciones por local
+     - **✨ Análisis por Local (NUEVO)**: Curvas completas, sobrestock, acciones sugeridas
    - Validación de Check Sum (100% distribución)
    - Estadísticas en tiempo real
-   - Exportación a Excel con múltiples hojas
+   - Exportación a Excel con **5 hojas** (incluye "Análisis por Local")
 
 5. **Revisión y Exportación**
    - Resumen de movimientos
@@ -267,65 +266,63 @@ Distribuye unidades enteras según porcentajes sin dejar residuo.
 - Residuos: A=0.5, B=0.2, C=0.3
 - **Resultado: A=4, B=3, C=3** (A tiene mayor residuo)
 
-### Reglas de Negocio R1-R8
+### Reglas de Negocio (12 Reglas Implementadas)
 
-El motor aplica secuencialmente 8 reglas después del Hamilton:
+El motor aplica secuencialmente **12 reglas** organizadas en 3 grupos:
 
-- **R1: Mantener Curva Entera**
-  - Agrupa por TIPOLOGIA + Color
-  - Detecta curvas incompletas (<70% talles)
-  - Registra en trazabilidad
+#### 📍 CROSS (Reglas 1-3)
+- **CROSS-R1:** Distribución base según % UTA (Hamilton)
+- **CROSS-R2:** Validar curvas completas (umbral 70%)
+- **CROSS-R3:** Sobrantes al local con mayor participación
 
-- **R2: Sobrantes Completar Curva**
-  - Identifica excedentes
-  - Prioriza completar curvas faltantes
+#### 🏪 INTERLOCAL (Reglas 4-9)
+- **INTERLOCAL-R4:** Restricción locales grandes (>8% UTA)
+- **INTERLOCAL-R5:** Prioridad completar curva (productos críticos primero)
+- **INTERLOCAL-R6:** Optimizar movimientos (unificar transferencias)
+- **INTERLOCAL-R7:** Limpiar curvas rotas (umbral 50%)
+- **INTERLOCAL-R8:** Analizar categoría + prioridad (trazabilidad)
+- **INTERLOCAL-R9:** Acumular UTA (validación 100%)
 
-- **R3: Locales Grandes**
-  - Detecta sucursales grandes
-  - Optimiza distribución
+#### 🛒 COMERCIAL (Reglas 10-12) ⭐ NUEVO
+- **COMERCIAL-R10:** Garantizar ≥1 curva completa por SKU
+- **COMERCIAL-R11:** Eliminar microasignaciones <3 unidades
+- **COMERCIAL-R12:** Reasignar si top UTA completo (balanceo)
 
-- **R4: Minimizar Movimientos**
-  - Reduce transferencias innecesarias
-  - Consolida movimientos
-
-- **R5: Limpieza Curvas Rotas**
-  - Identifica curvas incompletas
-  - Propone limpieza
-
-- **R6: Interior Entre Ellos**
-  - Optimiza distribución regional
-  - Agrupa transferencias
-
-- **R7: Categoría + Prioridad**
-  - Registra tipología y prioridad
-  - Traza temporada y origen
-
-- **R8: UTA Acumulada**
-  - Acumula unidades totales por sucursal
-  - Genera estadísticas para análisis
+**📚 Ver documentación completa:** [REGLAS_DE_NEGOCIO.md](./REGLAS_DE_NEGOCIO.md)
 
 ### Salidas del Motor
 
-El sistema genera un archivo Excel (.xlsx) con 4 hojas:
+El sistema genera un archivo Excel (.xlsx) con **5 hojas:**
 
 #### 1. Distribución Final
 ```
-SKU | Talle | Color | NombreColor | Sucursal | Unidades | Cuota Exacta | Residuo | Origen | Temporada | Prioridad
+SKU | TIPOLOGIA | Color | Medida | Depósitos Origen | Sucursal Destino | Unidades | Cuota | Residuo | Regla
 ```
 
 #### 2. Transferencias
 ```
-SKU | Talle | Color | Origen | Destino | Unidades | Motivo | Prioridad | Temporada
+SKU | Talle | Color | Origen | Destino | Unidades | Motivo | Regla | Prioridad | Temporada
 ```
 
-#### 3. Resumen por Sucursal
+#### 3. Resumen Sucursales
 ```
-Sucursal | Total Unidades | Participación (%) | SKUs Únicos
+Sucursal | Total Unidades | % Esperado | % Real | Desviación | Local Grande
 ```
 
-#### 4. Log de Trazabilidad
+#### 4. ✨ Análisis por Local (NUEVO)
 ```
-Regla | SKU | Sucursal | Producto | Motivo | Prioridad | Temporada | Detalles
+Local | % UTA | Stock Actual | Curvas Completas | Curvas Incompletas | Sobrestock | Acción Sugerida | Local Grande
+```
+
+**Acciones Sugeridas Automáticas:**
+- ✅ **Óptimo:** Mantener distribución (curvas completas balanceadas)
+- ⚡ **Completar curvas:** Enviar talles faltantes
+- ⚠️ **Sobrestock:** Redistribuir excedentes (≥3 curvas completas)
+- 📦 **Vacío:** Requiere asignación inicial
+
+#### 5. Log de Trazabilidad
+```
+Timestamp | Regla | Mensaje | Datos
 ```
 
 ### Validaciones y Check Sum
@@ -344,17 +341,32 @@ El sistema valida que:
 ## Funcionalidades Implementadas
 
 - [x] Motor de Distribución Automática con Algoritmo Hamilton
-- [x] Implementación completa de reglas R1-R8
+- [x] Implementación completa de **12 reglas de negocio** (CROSS + INTERLOCAL + COMERCIAL)
+- [x] **Modelo de 3 Niveles:** Matemático, Comercial, Logístico
+- [x] **Análisis por Local:** Curvas asignadas, sobrestock, acciones sugeridas
+- [x] **Transferencias Inteligentes:** Evita enviar y recibir del mismo local
 - [x] Validación estricta de archivos CSV (formato, columnas, sumas)
 - [x] Orden de distribución por prioridad
 - [x] Check sum al 100%
-- [x] Exportación a Excel con 4 hojas
+- [x] Exportación a Excel con **5 hojas**
 - [x] Trazabilidad completa de operaciones
-- [x] Interfaz unificada de distribución
+- [x] Interfaz unificada de distribución con **3 tabs**
 - [x] Archivos de ejemplo actualizados
 - [x] Previsualización con paginación para archivos grandes
+- [x] **Documentación completa de 50+ páginas** ([REGLAS_DE_NEGOCIO.md](./REGLAS_DE_NEGOCIO.md))
 
 ## Cambios Recientes (v2.0)
+
+### ✅ Modelo de 3 Niveles Implementado (NUEVO 2025-10-30)
+- **12 Reglas de Negocio:** CROSS (R1-R3) + INTERLOCAL (R4-R9) + COMERCIAL (R10-R12)
+- **Nuevo Tab "Análisis por Local":** Métricas de curvas, sobrestock, acciones sugeridas
+- **Transferencias Inteligentes:** Evita que un local envíe y reciba simultáneamente
+- **Documentación Completa:** Ver [REGLAS_DE_NEGOCIO.md](./REGLAS_DE_NEGOCIO.md) (50+ páginas)
+
+### ✅ Nuevas Reglas Comerciales (R10-R12)
+- **COMERCIAL-R10:** Garantizar ≥1 curva completa por SKU
+- **COMERCIAL-R11:** Eliminar microasignaciones <3 unidades
+- **COMERCIAL-R12:** Reasignar si top UTA tiene curva completa con excedente
 
 ### ✅ Eliminación de Duplicados
 - Removida opción "Distribución Inter-local" del menú
@@ -375,6 +387,7 @@ El sistema valida que:
 - Instrucciones claras sobre formatos requeridos
 - Ejemplos mejorados con casos reales
 - Validaciones en tiempo real
+- Nueva tabla "Análisis por Local" con métricas comerciales
 
 ## Próximas Funcionalidades
 
