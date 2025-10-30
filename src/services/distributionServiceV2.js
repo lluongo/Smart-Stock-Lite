@@ -1125,71 +1125,38 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
       stockPorLocal[d.nombre] = d.cantidad;
     });
 
-    // Identificar necesidades y excedentes
+    // Identificar necesidades (TODAS las sucursales reciben su cuota completa)
     const necesidadesPorSucursal = {};
     const excedentesPorLocal = {};
 
+    // CORRECCIÓN: Todas las sucursales necesitan recibir su cuota completa
+    // El stock inicial de una sucursal se trata como "depósito" y va al pool de orígenes
     Object.entries(distribucionSKU).forEach(([sucursal, cuotaAsignada]) => {
-      const stockPropio = stockPorLocal[sucursal] || 0;
-
-      if (stockPropio < cuotaAsignada) {
-        // Necesita recibir (cuota mayor que stock propio)
-        necesidadesPorSucursal[sucursal] = cuotaAsignada - stockPropio;
-        log('NECESIDADES', `${sucursal} necesita ${cuotaAsignada - stockPropio} de ${sku} (tiene ${stockPropio}, necesita ${cuotaAsignada})`);
-      } else if (stockPropio > cuotaAsignada) {
-        // Tiene excedente para enviar
-        excedentesPorLocal[sucursal] = stockPropio - cuotaAsignada;
-        log('EXCEDENTES', `${sucursal} tiene excedente de ${stockPropio - cuotaAsignada} de ${sku} (tiene ${stockPropio}, necesita ${cuotaAsignada})`);
-      } else {
-        // Stock propio === cuota, no necesita transferir
-        log('BALANCEADO', `${sucursal} tiene exactamente lo que necesita de ${sku} (${stockPropio} unidades)`);
-      }
+      // Todas las sucursales reciben su cuota completa (sin restar stock propio)
+      necesidadesPorSucursal[sucursal] = cuotaAsignada;
+      log('NECESIDADES', `${sucursal} necesita ${cuotaAsignada} de ${sku} (cuota según Hamilton)`);
     });
 
-    // Distribuir desde excedentes y depósitos puros hacia necesidades
+    // Distribuir desde TODOS los depósitos (incluyendo sucursales con stock) hacia necesidades
     Object.entries(necesidadesPorSucursal).forEach(([sucursal, unidadesNecesarias]) => {
       let unidadesPendientes = unidadesNecesarias;
 
-      // PRIMERO: Usar excedentes de otros locales que participan en distribución
-      for (const [localExcedente, cantidadDisponible] of Object.entries(excedentesPorLocal)) {
-        if (unidadesPendientes <= 0) break;
-        if (excedentesPorLocal[localExcedente] <= 0) continue;
-
-        const unidadesATransferir = Math.min(unidadesPendientes, excedentesPorLocal[localExcedente]);
-
-        const motivo = obtenerMotivoTransferencia(sku, sucursal);
-        const reglaAplicada = motivo.includes('CROSS-R2') ? 'CROSS-R2'
-                            : motivo.includes('INTERLOCAL-R7') ? 'INTERLOCAL-R7'
-                            : 'HAMILTON';
-
-        transferencias.push({
-          sku,
-          talle: medida,
-          color: nombreColor || color,
-          origen: localExcedente,
-          destino: sucursal,
-          unidades: unidadesATransferir,
-          motivo,
-          reglaAplicada,
-          prioridad,
-          temporada
-        });
-
-        excedentesPorLocal[localExcedente] -= unidadesATransferir;
-        unidadesPendientes -= unidadesATransferir;
-      }
-
-      // SEGUNDO: Usar depósitos que NO participan en la distribución (depósitos puros)
+      // Usar TODOS los depósitos disponibles como orígenes (sin distinción)
       for (const deposito of depositos) {
         if (unidadesPendientes <= 0) break;
 
-        // Saltar si este depósito es una sucursal que participa en distribución
-        if (distribucionSKU[deposito.nombre] !== undefined) {
-          continue; // Ya se procesó en excedentes o necesidades
-        }
-
         const stockDisponible = stockPorLocal[deposito.nombre] || 0;
         if (stockDisponible <= 0) continue;
+
+        // Evitar auto-transferencias (origen === destino)
+        if (deposito.nombre === sucursal) {
+          // El local se queda con su propio stock hasta su cuota
+          const unidadesAConservar = Math.min(stockDisponible, unidadesPendientes);
+          stockPorLocal[deposito.nombre] -= unidadesAConservar;
+          unidadesPendientes -= unidadesAConservar;
+          log('AUTO-ASIGNACION', `${sucursal} conserva ${unidadesAConservar} de ${sku} de su stock propio`);
+          continue;
+        }
 
         const unidadesATransferir = Math.min(unidadesPendientes, stockDisponible);
 
