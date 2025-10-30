@@ -130,7 +130,7 @@ export const parsearStock = (data) => {
     }
 
     const coddep = idxCoddep >= 0 ? String(row[idxCoddep] || '').trim() : '';
-    const deposito = idxDeposito >= 0 ? String(row[idxDeposito] || '').trim() : '';
+    const deposito = idxDeposito >= 0 ? String(row[idxDeposito] || '').trim().toUpperCase() : ''; // Normalizar a MAYÚSCULAS
     const color = idxColor >= 0 ? String(row[idxColor] || '').trim() : '';
     const nombreColor = idxNombreColor >= 0 ? String(row[idxNombreColor] || '').trim() : '';
     const medida = idxMedida >= 0 ? String(row[idxMedida] || '').trim() : '';
@@ -195,7 +195,7 @@ export const parsearParticipacion = (data) => {
     const row = data[i];
     if (!row || row.length < 2) continue;
 
-    const sucursal = String(row[0] || '').trim();
+    const sucursal = String(row[0] || '').trim().toUpperCase(); // Normalizar a MAYÚSCULAS
     const participacion = parseFloat(row[1]);
 
     if (sucursal && !isNaN(participacion) && participacion > 0) {
@@ -291,18 +291,19 @@ const consolidarPorSKU = (productos) => {
     // Acumular cantidad total
     skusConsolidados[sku].cantidadTotal += cantidad;
 
-    // Buscar si el depósito ya existe en la lista
+    // Buscar si el depósito ya existe en la lista (comparación case-insensitive)
+    const nombreDepositoNormalizado = (deposito || 'SIN NOMBRE').toUpperCase();
     const depositoExistente = skusConsolidados[sku].depositos.find(
-      d => d.nombre === (deposito || 'Sin nombre')
+      d => d.nombre.toUpperCase() === nombreDepositoNormalizado
     );
 
     if (depositoExistente) {
       // Si existe, sumar cantidades
       depositoExistente.cantidad += cantidad;
     } else {
-      // Si no existe, agregar nuevo
+      // Si no existe, agregar nuevo (ya normalizado a mayúsculas)
       skusConsolidados[sku].depositos.push({
-        nombre: deposito || 'Sin nombre',
+        nombre: nombreDepositoNormalizado,
         coddep: coddep,
         cantidad: cantidad
       });
