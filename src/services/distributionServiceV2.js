@@ -12,6 +12,8 @@ import * as XLSX from 'xlsx';
 
 const UMBRAL_LOCAL_GRANDE = 8; // % UTA - Locales > 8% son considerados "grandes"
 const UMBRAL_SOBRESTOCK_CURVAS = 3; // Curvas - Sobrestock permitido para transferencia
+const MINIMO_UNIDADES_ASIGNACION = 3; // Unidades mínimas para asignar (evitar microasignaciones)
+const MINIMO_CURVA_COMPLETA = 1; // Al menos 1 curva completa por SKU
 
 // Trazabilidad global
 const trazabilidad = [];
@@ -733,6 +735,174 @@ const aplicarReglasInterlocal = (distribucionPorSKU, curvas, sucursales, partici
 };
 
 // ============================================================================
+// REGLAS COMERCIALES AVANZADAS (10-12)
+// ============================================================================
+
+/**
+ * COMERCIAL - Regla 10: Garantizar al menos 1 curva completa por SKU en distribución
+ */
+const garantizarCurvaCompletaMinima = (distribucionPorSKU, curvas, sucursales, participaciones) => {
+  log('COMERCIAL-R10', '📍 Verificando curvas completas mínimas por SKU');
+
+  let ajustes = 0;
+
+  Object.entries(curvas).forEach(([claveCurva, curva]) => {
+    const { talles, skus, tipologia, color } = curva;
+
+    // Verificar si alguna sucursal tiene la curva completa
+    let hayAlgunaCurvaCompleta = false;
+
+    sucursales.forEach(suc => {
+      const tallesPresentes = talles.filter(talle => {
+        const sku = skus.find(s => s.includes(`_${talle}`));
+        return sku && distribucionPorSKU[sku] && distribucionPorSKU[sku][suc] > 0;
+      });
+
+      if (tallesPresentes.length === talles.length) {
+        hayAlgunaCurvaCompleta = true;
+      }
+    });
+
+    // Si ninguna sucursal tiene curva completa, asignar al local con mayor UTA
+    if (!hayAlgunaCurvaCompleta) {
+      const localMayorParticipacion = Object.entries(participaciones)
+        .reduce((max, [suc, pct]) => pct > max.pct ? { suc, pct } : max, { suc: null, pct: 0 }).suc;
+
+      // Asignar 1 unidad de cada talle al local top
+      skus.forEach(sku => {
+        if (!distribucionPorSKU[sku]) distribucionPorSKU[sku] = {};
+        if (!distribucionPorSKU[sku][localMayorParticipacion]) {
+          distribucionPorSKU[sku][localMayorParticipacion] = 1;
+          ajustes++;
+
+          registrarMotivoTransferencia(sku, localMayorParticipacion,
+            `COMERCIAL-R10: Curva completa mínima garantizada - ${tipologia}_${color}`);
+        }
+      });
+
+      log('COMERCIAL-R10', `Curva completa garantizada: ${claveCurva} en ${localMayorParticipacion}`, {
+        talles: talles.length,
+        skus: skus.length
+      });
+    }
+  });
+
+  log('COMERCIAL-R10', `✅ Ajustes realizados: ${ajustes} asignaciones mínimas`);
+};
+
+/**
+ * COMERCIAL - Regla 11: Eliminar microasignaciones <3 unidades y redistribuir
+ */
+const eliminarMicroasignaciones = (distribucionPorSKU, sucursales, participaciones) => {
+  log('COMERCIAL-R11', '📍 Eliminando microasignaciones <3 unidades');
+
+  const unidadesRetiradas = [];
+
+  Object.entries(distribucionPorSKU).forEach(([sku, distribucion]) => {
+    sucursales.forEach(suc => {
+      const unidades = distribucion[suc] || 0;
+
+      if (unidades > 0 && unidades < MINIMO_UNIDADES_ASIGNACION) {
+        // Retirar microasignación
+        unidadesRetiradas.push({ sku, unidades, sucursalOrigen: suc });
+        distribucionPorSKU[sku][suc] = 0;
+
+        log('COMERCIAL-R11', `Microasignación retirada: ${sku} en ${suc} (${unidades} unidades)`, {
+          sku,
+          sucursal: suc,
+          unidades
+        });
+      }
+    });
+  });
+
+  // Redistribuir al local con mayor UTA
+  if (unidadesRetiradas.length > 0) {
+    const localMayorParticipacion = Object.entries(participaciones)
+      .reduce((max, [suc, pct]) => pct > max.pct ? { suc, pct } : max, { suc: null, pct: 0 }).suc;
+
+    unidadesRetiradas.forEach(({ sku, unidades, sucursalOrigen }) => {
+      distribucionPorSKU[sku][localMayorParticipacion] =
+        (distribucionPorSKU[sku][localMayorParticipacion] || 0) + unidades;
+
+      registrarMotivoTransferencia(sku, localMayorParticipacion,
+        `COMERCIAL-R11: Redistribución de microasignación desde ${sucursalOrigen} (${unidades} unidades)`);
+    });
+
+    log('COMERCIAL-R11', `✅ ${unidadesRetiradas.length} microasignaciones eliminadas y redistribuidas a ${localMayorParticipacion}`);
+  } else {
+    log('COMERCIAL-R11', '✅ No se encontraron microasignaciones');
+  }
+};
+
+/**
+ * COMERCIAL - Regla 12: Si top UTA tiene curva completa, reasignar excedente al siguiente
+ */
+const reasignarSiTopUTACompleto = (distribucionPorSKU, curvas, sucursales, participaciones) => {
+  log('COMERCIAL-R12', '📍 Verificando si top UTA está completo para reasignar excedente');
+
+  const sucursalesOrdenadas = Object.entries(participaciones)
+    .sort((a, b) => b[1] - a[1])
+    .map(([suc]) => suc);
+
+  const topUTA = sucursalesOrdenadas[0];
+  const segundoUTA = sucursalesOrdenadas[1];
+
+  let reasignaciones = 0;
+
+  Object.entries(curvas).forEach(([claveCurva, curva]) => {
+    const { talles, skus, tipologia, color } = curva;
+
+    // Verificar si top UTA tiene curva completa
+    const tallesPresentesTop = talles.filter(talle => {
+      const sku = skus.find(s => s.includes(`_${talle}`));
+      return sku && distribucionPorSKU[sku] && distribucionPorSKU[sku][topUTA] > 0;
+    });
+
+    if (tallesPresentesTop.length === talles.length) {
+      // Top UTA tiene curva completa, verificar si tiene excedente
+      skus.forEach(sku => {
+        const unidadesTop = distribucionPorSKU[sku]?.[topUTA] || 0;
+
+        if (unidadesTop > 1) {
+          // Tiene más de 1 unidad, reasignar excedente al segundo UTA
+          const excedente = unidadesTop - 1;
+          distribucionPorSKU[sku][topUTA] = 1;
+          distribucionPorSKU[sku][segundoUTA] = (distribucionPorSKU[sku][segundoUTA] || 0) + excedente;
+
+          reasignaciones++;
+
+          registrarMotivoTransferencia(sku, segundoUTA,
+            `COMERCIAL-R12: Excedente reasignado desde ${topUTA} (curva completa presente)`);
+
+          log('COMERCIAL-R12', `Excedente reasignado: ${sku} de ${topUTA} a ${segundoUTA} (${excedente} unidades)`);
+        }
+      });
+    }
+  });
+
+  log('COMERCIAL-R12', `✅ Reasignaciones realizadas: ${reasignaciones}`);
+};
+
+/**
+ * Aplica todas las reglas COMERCIALES avanzadas
+ */
+const aplicarReglasComerciales = (distribucionPorSKU, curvas, sucursales, participaciones) => {
+  log('COMERCIAL', '📍 Iniciando reglas COMERCIALES avanzadas (10-12)');
+
+  // Regla 10: Garantizar al menos 1 curva completa
+  garantizarCurvaCompletaMinima(distribucionPorSKU, curvas, sucursales, participaciones);
+
+  // Regla 11: Eliminar microasignaciones
+  eliminarMicroasignaciones(distribucionPorSKU, sucursales, participaciones);
+
+  // Regla 12: Reasignar si top UTA completo
+  reasignarSiTopUTACompleto(distribucionPorSKU, curvas, sucursales, participaciones);
+
+  log('COMERCIAL', '✅ Reglas COMERCIALES completadas');
+};
+
+// ============================================================================
 // MOTOR PRINCIPAL V2
 // ============================================================================
 
@@ -810,6 +980,9 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   // PASO 7: Aplicar REGLAS INTERLOCAL (4-9)
   aplicarReglasInterlocal(distribucionPorSKU, curvas, sucursales, participaciones, prioridades);
 
+  // PASO 7.3: Aplicar REGLAS COMERCIALES avanzadas (10-12)
+  aplicarReglasComerciales(distribucionPorSKU, curvas, sucursales, participaciones);
+
   // PASO 7.5: Actualizar distribucionDetallada con los cambios de las reglas
   distribucionDetallada.length = 0; // Limpiar y regenerar
 
@@ -863,6 +1036,68 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
     resumenSucursales[suc].participacionReal =
       ((resumenSucursales[suc].totalUnidades / totalUnidadesDistribuidas) * 100).toFixed(2);
   });
+
+  // PASO 8.5: Calcular análisis detallado por local (curvas asignadas, sobrestock, acciones)
+  const analisisPorLocal = {};
+
+  sucursales.forEach(suc => {
+    // Calcular stock actual (unidades asignadas)
+    const stockActual = resumenSucursales[suc].totalUnidades;
+
+    // Calcular curvas asignadas (completas e incompletas)
+    const curvasCompletas = [];
+    const curvasIncompletas = [];
+    let totalCurvas = 0;
+
+    Object.entries(curvas).forEach(([claveCurva, curva]) => {
+      const { talles, skus, tipologia, color } = curva;
+      const nombreCurva = `${tipologia}_${color}`;
+
+      const tallesPresentes = talles.filter(talle => {
+        const sku = skus.find(s => s.includes(`_${talle}`));
+        return sku && distribucionPorSKU[sku] && distribucionPorSKU[sku][suc] > 0;
+      });
+
+      const porcentajeCurva = (tallesPresentes.length / talles.length) * 100;
+
+      if (porcentajeCurva === 100) {
+        curvasCompletas.push(nombreCurva);
+        totalCurvas++;
+      } else if (porcentajeCurva >= 50) {
+        curvasIncompletas.push(`${nombreCurva} (${porcentajeCurva.toFixed(0)}%)`);
+      }
+    });
+
+    // Detectar sobrestock (>3 curvas completas del mismo SKU)
+    const sobrestockDetectado = curvasCompletas.length >= UMBRAL_SOBRESTOCK_CURVAS;
+
+    // Determinar acción sugerida
+    let accionSugerida = '';
+    if (sobrestockDetectado) {
+      accionSugerida = '⚠️ Sobrestock: Redistribuir excedentes';
+    } else if (curvasCompletas.length === 0 && curvasIncompletas.length === 0) {
+      accionSugerida = '📦 Vacío: Requiere asignación';
+    } else if (curvasCompletas.length > 0) {
+      accionSugerida = '✅ Óptimo: Mantener distribución';
+    } else if (curvasIncompletas.length > 0) {
+      accionSugerida = '⚡ Completar curvas incompletas';
+    }
+
+    analisisPorLocal[suc] = {
+      local: suc,
+      participacionUTA: participaciones[suc].toFixed(2),
+      stockActual,
+      curvasCompletas: curvasCompletas.length,
+      curvasIncompletas: curvasIncompletas.length,
+      detalleCurvasCompletas: curvasCompletas.join(', ') || 'Ninguna',
+      detalleCurvasIncompletas: curvasIncompletas.join(', ') || 'Ninguna',
+      sobrestock: sobrestockDetectado ? 'SÍ' : 'NO',
+      accionSugerida,
+      esLocalGrande: participaciones[suc] > UMBRAL_LOCAL_GRANDE
+    };
+  });
+
+  log('ANALISIS', `Análisis por local generado: ${Object.keys(analisisPorLocal).length} locales`);
 
   // PASO 9: Check Sum
   const totalOriginal = Object.values(skusConsolidados).reduce((sum, sku) => sum + sku.cantidadTotal, 0);
@@ -1004,6 +1239,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   return {
     distribucionDetallada,
     resumenSucursales,
+    analisisPorLocal,
     transferencias,
     trazabilidad: [...trazabilidad],
     checkSum,
@@ -1088,13 +1324,40 @@ export const exportarDistribucionCompleta = (resultado) => {
   const ws3 = XLSX.utils.aoa_to_sheet(hoja3Data);
   XLSX.utils.book_append_sheet(wb, ws3, 'Resumen Sucursales');
 
-  // HOJA 4: Log de Trazabilidad
+  // HOJA 4: Análisis por Local (Modelo de 3 Niveles)
   const hoja4Data = [
+    ['Local', '% UTA', 'Stock Actual', 'Curvas Completas', 'Curvas Incompletas', 'Sobrestock', 'Acción Sugerida', 'Local Grande']
+  ];
+
+  if (resultado.analisisPorLocal) {
+    // Ordenar por % UTA descendente
+    const localesOrdenados = Object.entries(resultado.analisisPorLocal)
+      .sort((a, b) => parseFloat(b[1].participacionUTA) - parseFloat(a[1].participacionUTA));
+
+    localesOrdenados.forEach(([local, datos]) => {
+      hoja4Data.push([
+        datos.local,
+        datos.participacionUTA + '%',
+        datos.stockActual,
+        datos.curvasCompletas,
+        datos.curvasIncompletas,
+        datos.sobrestock,
+        datos.accionSugerida,
+        datos.esLocalGrande ? 'Sí' : 'No'
+      ]);
+    });
+  }
+
+  const ws4 = XLSX.utils.aoa_to_sheet(hoja4Data);
+  XLSX.utils.book_append_sheet(wb, ws4, 'Análisis por Local');
+
+  // HOJA 5: Log de Trazabilidad
+  const hoja5Data = [
     ['Timestamp', 'Regla', 'Mensaje', 'Datos']
   ];
 
   resultado.trazabilidad.forEach(log => {
-    hoja4Data.push([
+    hoja5Data.push([
       log.timestamp,
       log.regla,
       log.mensaje,
@@ -1102,8 +1365,8 @@ export const exportarDistribucionCompleta = (resultado) => {
     ]);
   });
 
-  const ws4 = XLSX.utils.aoa_to_sheet(hoja4Data);
-  XLSX.utils.book_append_sheet(wb, ws4, 'Log Trazabilidad');
+  const ws5 = XLSX.utils.aoa_to_sheet(hoja5Data);
+  XLSX.utils.book_append_sheet(wb, ws5, 'Log Trazabilidad');
 
   const fecha = new Date().toISOString().split('T')[0];
   XLSX.writeFile(wb, `Distribucion_Inteligente_${fecha}.xlsx`);

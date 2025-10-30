@@ -25,7 +25,7 @@ const Distribucion = () => {
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
-  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, resumen
+  const [tabActiva, setTabActiva] = useState('distribucion'); // distribucion, resumen, analisis
 
   // Estados de paginación
   const [paginaDistribucion, setPaginaDistribucion] = useState(1);
@@ -310,6 +310,17 @@ const Distribucion = () => {
                 <Store className="w-4 h-4 inline mr-2" />
                 Resumen Sucursales
               </button>
+              <button
+                onClick={() => setTabActiva('analisis')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  tabActiva === 'analisis'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Activity className="w-4 h-4 inline mr-2" />
+                Análisis por Local
+              </button>
             </nav>
           </div>
 
@@ -429,6 +440,94 @@ const Distribucion = () => {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* TAB: Análisis por Local */}
+            {tabActiva === 'analisis' && resultado.analisisPorLocal && (
+              <div className="overflow-x-auto">
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">📊 Modelo de 3 Niveles: Análisis Integral</h3>
+                  <p className="text-xs text-blue-700">
+                    Este análisis aplica el modelo completo de distribución retail:
+                    <strong> Nivel Matemático</strong> (Hamilton + Check Sum),
+                    <strong> Nivel Comercial</strong> (Curvas completas, capacidad real, sin microasignaciones),
+                    <strong> Nivel Logístico</strong> (Eficiencia de movimientos, inter-local optimizado).
+                  </p>
+                </div>
+
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Local</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% UTA</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Actual</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Curvas Completas</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Curvas Incompletas</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sobrestock</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acción Sugerida</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Object.entries(resultado.analisisPorLocal)
+                      .sort((a, b) => parseFloat(b[1].participacionUTA) - parseFloat(a[1].participacionUTA))
+                      .map(([local, datos]) => (
+                        <tr key={local} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {local}
+                            {datos.esLocalGrande && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">
+                                Grande
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {datos.participacionUTA}%
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                            {datos.stockActual}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-medium">
+                            {datos.curvasCompletas}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-700">
+                            {datos.curvasIncompletas}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${
+                              datos.sobrestock === 'SÍ'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {datos.sobrestock}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {datos.accionSugerida}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+
+                {/* Detalle expandible de curvas (opcional, muestra al hacer hover o click) */}
+                <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">💡 Interpretación de Acciones</h4>
+                  <div className="grid grid-cols-2 gap-4 text-xs text-gray-700">
+                    <div>
+                      <span className="font-medium">✅ Óptimo:</span> Local tiene curvas completas bien balanceadas
+                    </div>
+                    <div>
+                      <span className="font-medium">⚡ Completar curvas:</span> Tiene curvas incompletas que podrían completarse
+                    </div>
+                    <div>
+                      <span className="font-medium">⚠️ Sobrestock:</span> Tiene ≥3 curvas completas, puede redistribuir excedentes
+                    </div>
+                    <div>
+                      <span className="font-medium">📦 Vacío:</span> No tiene curvas asignadas, requiere stock inicial
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
