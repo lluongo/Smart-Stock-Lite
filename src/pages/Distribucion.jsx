@@ -23,7 +23,7 @@ import {
 
 const Distribucion = () => {
   const navigate = useNavigate();
-  const { stockData, participacionData, prioridadData } = useApp();
+  const { stockData, participacionData, prioridadData, distributionData, setDistributionData } = useApp();
 
   const [resultado, setResultado] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -36,6 +36,13 @@ const Distribucion = () => {
 
   // Estado para controlar locales expandidos
   const [localesExpandidos, setLocalesExpandidos] = useState({});
+
+  // Cargar datos del contexto al montar el componente
+  useEffect(() => {
+    if (distributionData && Object.keys(distributionData).length > 0) {
+      setResultado(distributionData);
+    }
+  }, []);
 
   // Calcular distribución al cargar datos
   useEffect(() => {
@@ -66,6 +73,8 @@ const Distribucion = () => {
       );
 
       setResultado(result);
+      // Guardar en el contexto global para que el Dashboard pueda acceder
+      setDistributionData(result);
     } catch (err) {
       setError(err.message);
       console.error('Error al calcular distribución:', err);
