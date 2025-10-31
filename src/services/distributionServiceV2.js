@@ -226,8 +226,12 @@ export const parsearParticipacion = (data) => {
 
     log('NORMALIZACION', `⚠️ Los porcentajes sumaban ${sumaTotal.toFixed(2)}%. Normalizando a 100%...`, {
       sumaOriginal: sumaTotal.toFixed(2),
-      factor: factorNormalizacion.toFixed(4)
+      factor: factorNormalizacion.toFixed(4),
+      sucursalesAntes: Object.keys(participaciones).length
     });
+
+    // Mostrar valores ANTES de normalización
+    console.table(Object.entries(participaciones).map(([suc, pct]) => ({ Sucursal: suc, Antes: pct.toFixed(2) })));
 
     // Aplicar normalización
     Object.keys(participaciones).forEach(suc => {
@@ -238,9 +242,16 @@ export const parsearParticipacion = (data) => {
     const sumaNormalizada = Object.values(participaciones).reduce((sum, val) => sum + val, 0);
 
     log('NORMALIZACION', `✅ Normalización completa. Nueva suma: ${sumaNormalizada.toFixed(2)}%`);
+
+    // Mostrar valores DESPUÉS de normalización
+    console.table(Object.entries(participaciones).map(([suc, pct]) => ({ Sucursal: suc, Después: pct.toFixed(2) })));
+  } else {
+    log('NORMALIZACION', `✅ No requiere normalización. Suma: ${sumaTotal.toFixed(2)}%`);
   }
 
-  log('PARSER', `Participación parseada: ${Object.keys(participaciones).length} sucursales, suma: 100%`);
+  // Verificación final antes de retornar
+  const sumaFinal = Object.values(participaciones).reduce((sum, val) => sum + val, 0);
+  log('PARSER', `Participación parseada: ${Object.keys(participaciones).length} sucursales, suma final: ${sumaFinal.toFixed(2)}%`);
 
   return participaciones;
 };
@@ -1035,6 +1046,12 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   // PASO 8: Generar resumen
   // Inicializar TODAS las sucursales del archivo de participación (incluso las con 0 unidades)
   const resumenSucursales = {};
+
+  // DEBUG: Verificar participaciones antes de crear resumen
+  const sumaParticipacionesRecibidas = Object.values(participaciones).reduce((sum, val) => sum + val, 0);
+  log('RESUMEN_INIT', `Inicializando resumen con ${sucursales.length} sucursales. Suma participaciones: ${sumaParticipacionesRecibidas.toFixed(2)}%`);
+  console.table(Object.entries(participaciones).map(([suc, pct]) => ({ Sucursal: suc, Participación: pct.toFixed(2) })));
+
   sucursales.forEach(suc => {
     resumenSucursales[suc] = {
       totalUnidades: 0,

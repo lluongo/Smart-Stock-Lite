@@ -441,41 +441,66 @@ const Distribucion = () => {
             })()}
 
             {/* TAB: Resumen Sucursales */}
-            {tabActiva === 'resumen' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Unidades</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% Esperado</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% Real</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Desviación</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {Object.entries(resultado.resumenSucursales).map(([suc, datos]) => {
-                      const desviacion = (parseFloat(datos.participacionReal) - datos.participacionEsperada).toFixed(2);
-                      return (
-                        <tr key={suc} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{suc}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{datos.totalUnidades}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{datos.participacionEsperada.toFixed(2)}%</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{datos.participacionReal}%</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`text-sm font-medium ${
-                              Math.abs(desviacion) < 0.5 ? 'text-green-600' : 'text-yellow-600'
-                            }`}>
-                              {desviacion > 0 ? '+' : ''}{desviacion}%
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {tabActiva === 'resumen' && (() => {
+              // Calcular totales para verificación
+              const totalUnidadesGlobal = Object.values(resultado.resumenSucursales).reduce((sum, datos) => sum + datos.totalUnidades, 0);
+              const sumaEsperado = Object.values(resultado.resumenSucursales).reduce((sum, datos) => sum + datos.participacionEsperada, 0);
+              const sumaReal = Object.values(resultado.resumenSucursales).reduce((sum, datos) => sum + parseFloat(datos.participacionReal), 0);
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Unidades</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% Esperado</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% Real</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Desviación</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Object.entries(resultado.resumenSucursales).map(([suc, datos]) => {
+                        const desviacion = (parseFloat(datos.participacionReal) - datos.participacionEsperada).toFixed(2);
+                        return (
+                          <tr key={suc} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{suc}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{datos.totalUnidades}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{datos.participacionEsperada.toFixed(2)}%</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{datos.participacionReal}%</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`text-sm font-medium ${
+                                Math.abs(desviacion) < 0.5 ? 'text-green-600' : 'text-yellow-600'
+                              }`}>
+                                {desviacion > 0 ? '+' : ''}{desviacion}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Fila de TOTALES */}
+                      <tr className="bg-blue-50 font-bold border-t-2 border-blue-300">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-900">TOTAL</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-900">{totalUnidadesGlobal}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-900">
+                          {sumaEsperado.toFixed(2)}%
+                          {Math.abs(sumaEsperado - 100) > 0.01 && (
+                            <span className="ml-2 text-xs text-red-600">⚠️ No suma 100%</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-900">
+                          {sumaReal.toFixed(2)}%
+                          {Math.abs(sumaReal - 100) > 0.01 && (
+                            <span className="ml-2 text-xs text-red-600">⚠️ No suma 100%</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-900">-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
 
             {/* TAB: Análisis por Local */}
             {tabActiva === 'analisis' && resultado.analisisPorLocal && (
