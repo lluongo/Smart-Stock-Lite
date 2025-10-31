@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"C:\\Users\\luong\\git\\Smart-Stock-Lite\" /b)",
+      "Bash(dir \"C:\\Users\\luong\\git\\Smart-Stock-Lite\\src\" /b)",
+      "Bash(npm run dev:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
