@@ -220,13 +220,27 @@ export const parsearParticipacion = (data) => {
     sumaTotal += valorFinal;
   });
 
-  if (Math.abs(sumaTotal - 100) > 0.5) {
-    throw new Error(
-      `❌ Los porcentajes deben sumar 100%. Suma actual: ${sumaTotal.toFixed(2)}%`
-    );
+  // NORMALIZACIÓN AUTOMÁTICA: Si los porcentajes no suman 100%, normalizar proporcionalmente
+  if (Math.abs(sumaTotal - 100) > 0.01) {
+    const factorNormalizacion = 100 / sumaTotal;
+
+    log('NORMALIZACION', `⚠️ Los porcentajes sumaban ${sumaTotal.toFixed(2)}%. Normalizando a 100%...`, {
+      sumaOriginal: sumaTotal.toFixed(2),
+      factor: factorNormalizacion.toFixed(4)
+    });
+
+    // Aplicar normalización
+    Object.keys(participaciones).forEach(suc => {
+      participaciones[suc] = participaciones[suc] * factorNormalizacion;
+    });
+
+    // Verificar suma después de normalización
+    const sumaNormalizada = Object.values(participaciones).reduce((sum, val) => sum + val, 0);
+
+    log('NORMALIZACION', `✅ Normalización completa. Nueva suma: ${sumaNormalizada.toFixed(2)}%`);
   }
 
-  log('PARSER', `Participación parseada: ${Object.keys(participaciones).length} sucursales, suma: ${sumaTotal.toFixed(2)}%`);
+  log('PARSER', `Participación parseada: ${Object.keys(participaciones).length} sucursales, suma: 100%`);
 
   return participaciones;
 };
