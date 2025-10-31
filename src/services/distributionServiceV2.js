@@ -1129,19 +1129,28 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
       }
     });
 
-    // Detectar sobrestock (>3 curvas completas del mismo SKU)
-    const sobrestockDetectado = curvasCompletas.length >= UMBRAL_SOBRESTOCK_CURVAS;
+    // Detectar sobrestock: comparar % Real vs % Esperado
+    // Si tiene >10% más de lo esperado Y tiene curvas completas, es sobrestock
+    const participacionRealNum = parseFloat(resumenSucursales[suc].participacionReal);
+    const participacionEsperadaNum = resumenSucursales[suc].participacionEsperada;
+    const desviacionPorcentual = participacionRealNum - participacionEsperadaNum;
 
-    // Determinar acción sugerida
+    const sobrestockDetectado = desviacionPorcentual > 10 && curvasCompletas.length >= 2;
+
+    // Determinar acción sugerida basada en múltiples factores
     let accionSugerida = '';
-    if (sobrestockDetectado) {
-      accionSugerida = '⚠️ Sobrestock: Redistribuir excedentes';
-    } else if (curvasCompletas.length === 0 && curvasIncompletas.length === 0) {
+    if (curvasCompletas.length === 0 && curvasIncompletas.length === 0) {
       accionSugerida = '📦 Vacío: Requiere asignación';
-    } else if (curvasCompletas.length > 0) {
-      accionSugerida = '✅ Óptimo: Mantener distribución';
-    } else if (curvasIncompletas.length > 0) {
+    } else if (sobrestockDetectado) {
+      accionSugerida = `⚠️ Sobrestock: +${desviacionPorcentual.toFixed(1)}% sobre esperado`;
+    } else if (curvasIncompletas.length > 0 && curvasCompletas.length === 0) {
       accionSugerida = '⚡ Completar curvas incompletas';
+    } else if (curvasCompletas.length > 0 && Math.abs(desviacionPorcentual) <= 5) {
+      accionSugerida = '✅ Óptimo: Mantener distribución';
+    } else if (desviacionPorcentual < -5) {
+      accionSugerida = `⬇️ Bajo stock: ${desviacionPorcentual.toFixed(1)}% menos de lo esperado`;
+    } else {
+      accionSugerida = '✅ Aceptable: Distribución balanceada';
     }
 
     analisisPorLocal[suc] = {
