@@ -1033,6 +1033,7 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   log('REBUILD', `distribucionDetallada regenerada: ${distribucionDetallada.length} asignaciones finales`);
 
   // PASO 8: Generar resumen
+  // Inicializar TODAS las sucursales del archivo de participación (incluso las con 0 unidades)
   const resumenSucursales = {};
   sucursales.forEach(suc => {
     resumenSucursales[suc] = {
@@ -1044,14 +1045,40 @@ export const generarDistribucionAutomatica = (stockData, participacionData, prio
   });
 
   let totalUnidadesDistribuidas = 0;
+  const sucursalesNoEncontradas = new Set();
+
+  // Calcular unidades por sucursal - Solo sucursales del archivo de participación
   distribucionDetallada.forEach(item => {
-    resumenSucursales[item.sucursal].totalUnidades += item.unidades;
-    totalUnidadesDistribuidas += item.unidades;
+    const suc = item.sucursal;
+
+    // Validación: solo sumar si la sucursal está en el archivo de participación
+    if (resumenSucursales[suc]) {
+      resumenSucursales[suc].totalUnidades += item.unidades;
+      totalUnidadesDistribuidas += item.unidades;
+    } else {
+      // Advertencia: sucursal en distribución pero no en archivo de participación
+      sucursalesNoEncontradas.add(suc);
+      log('ADVERTENCIA', `⚠️ Sucursal "${suc}" encontrada en distribución pero NO está en archivo de participación`, {
+        sucursal: suc,
+        unidades: item.unidades
+      });
+    }
   });
 
+  if (sucursalesNoEncontradas.size > 0) {
+    log('ADVERTENCIA', `⚠️ ${sucursalesNoEncontradas.size} sucursal(es) NO encontradas en archivo de participación:`, {
+      sucursales: Array.from(sucursalesNoEncontradas)
+    });
+  }
+
+  // Calcular participación real (incluso para sucursales con 0 unidades)
   Object.keys(resumenSucursales).forEach(suc => {
-    resumenSucursales[suc].participacionReal =
-      ((resumenSucursales[suc].totalUnidades / totalUnidadesDistribuidas) * 100).toFixed(2);
+    if (totalUnidadesDistribuidas > 0) {
+      resumenSucursales[suc].participacionReal =
+        ((resumenSucursales[suc].totalUnidades / totalUnidadesDistribuidas) * 100).toFixed(2);
+    } else {
+      resumenSucursales[suc].participacionReal = '0.00';
+    }
   });
 
   // PASO 8.5: Calcular análisis detallado por local (curvas asignadas, sobrestock, acciones)
